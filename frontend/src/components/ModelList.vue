@@ -17,9 +17,8 @@
                   >
               </div>
               <p v-else
-                 class="text-sm font-medium text-indigo-600 truncate cursor-pointer"
-                 @dblclick="startEdit(model, 'name', model.name)"
-                 @click="$router.push(`/model/${model.id}`)"
+                 class="text-sm font-medium text-indigo-600 truncate cursor-pointer hover:underline"
+                 @click="startEdit(model, 'name', model.name)"
               >
                 {{ model.name }}
               </p>
@@ -35,35 +34,51 @@
                   ></textarea>
               </div>
               <p v-else
-                 class="mt-1 flex items-center text-sm text-gray-500 line-clamp-2 cursor-pointer"
-                 @dblclick="startEdit(model, 'description', model.description)"
+                 class="mt-1 flex items-center text-sm text-gray-500 line-clamp-2 cursor-pointer hover:text-gray-900"
+                 @click="startEdit(model, 'description', model.description)"
               >
-                {{ model.description }}
+                {{ model.description || '无描述 (点击编辑)' }}
               </p>
             </div>
 
             <div class="flex flex-col items-end flex-shrink-0 space-y-2">
                <!-- Tags -->
                <div class="flex flex-wrap gap-2 justify-end max-w-xs">
-                  <template v-for="(values, dim) in model.tags" :key="dim">
-                    <span
-                        v-for="val in values"
-                        :key="val"
-                        :class="['inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer', getTagColor(dim)]"
-                        @click.stop="toggleTagEdit(model, dim)"
-                    >
-                        {{ val }}
-                    </span>
+                  <template v-for="dim in store.dimensions" :key="dim.name">
+                      <!-- Always show trigger for each dimension, even if empty -->
+                      <TagEditPopover
+                        :model-id="model.id"
+                        :dimension="dim.name"
+                        :initial-tags="model.tags[dim.name] || []"
+                        :color-class="dim.color || 'bg-gray-100 text-gray-800'"
+                        @updated="emit('refresh')"
+                      >
+                         <template #trigger>
+                             <template v-if="model.tags[dim.name] && model.tags[dim.name].length > 0">
+                                <span
+                                    v-for="val in model.tags[dim.name]"
+                                    :key="val"
+                                    :class="['inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer mb-1 mr-1', dim.color || 'bg-gray-100 text-gray-800']"
+                                >
+                                    {{ val }}
+                                </span>
+                             </template>
+                             <template v-else>
+                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer border border-dashed border-gray-300 text-gray-400 hover:text-gray-600 mb-1 mr-1">
+                                    + {{ dim.name }}
+                                 </span>
+                             </template>
+                         </template>
+                      </TagEditPopover>
                   </template>
-                  <button @click.stop="openEditModal(model)" class="text-xs text-gray-400 hover:text-gray-600 border border-dashed border-gray-300 rounded px-1">+</button>
                </div>
 
                <div class="flex items-center text-xs text-gray-400">
                  <p>
                    更新于 {{ formatDate(model.updated_at) }}
                  </p>
-                 <button @click.stop="openEditModal(model)" class="ml-4 text-indigo-600 hover:text-indigo-900">✏️</button>
-                 <button @click.stop="deleteModel(model)" class="ml-2 text-red-600 hover:text-red-900">🗑️</button>
+                 <button @click.stop="openEditModal(model)" class="ml-4 text-indigo-600 hover:text-indigo-900">详情</button>
+                 <button @click.stop="deleteModel(model)" class="ml-2 text-red-600 hover:text-red-900">删除</button>
                </div>
             </div>
           </div>
@@ -75,11 +90,12 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue';
-import { MindModel } from '../types';
+import type { MindModel } from '../types';
 import { useMainStore } from '../stores';
 import { modelApi } from '../api';
+import TagEditPopover from './TagEditPopover.vue';
 
-const props = defineProps<{
+defineProps<{
   models: MindModel[];
 }>();
 
@@ -142,21 +158,6 @@ const cancelEdit = () => {
     editValue.value = '';
 };
 
-// Inline tag editing is complex (dropdown select).
-// The requirement says "Tags: Click to show dropdown selector".
-// For MVP + simplicity, maybe just opening the modal is better for tags,
-// or I can implement a quick tag toggler if I have time.
-// "Support inline editing... Tags support click add/delete".
-// Given time constraints, I'll redirect tag clicks to the full edit modal for now, or maybe just simple delete.
-// Let's rely on the Edit Modal for detailed tag management for now as per "Inline editing rules... Tags: Click show dropdown selector".
-// To properly implement dropdown selector inline, I need a Popover component.
-// I will just open the Edit Modal when clicking tags for now, or "+" button.
-const toggleTagEdit = (model: MindModel, dim: string) => {
-    // Ideally this opens a dropdown.
-    // For now, let's open the main edit modal which is user friendly enough.
-    openEditModal(model);
-};
-
 const openEditModal = (model: MindModel) => {
     emit('edit-model', model.id);
 };
@@ -174,10 +175,5 @@ const deleteModel = async (model: MindModel) => {
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('zh-CN');
-};
-
-const getTagColor = (dimName: string) => {
-    const dim = store.dimensions.find(d => d.name === dimName);
-    return dim?.color || 'bg-gray-100 text-gray-800';
 };
 </script>

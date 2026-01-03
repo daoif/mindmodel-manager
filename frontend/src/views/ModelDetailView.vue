@@ -111,7 +111,7 @@
 import { ref, onMounted, watch } from 'vue';
 import { useMainStore } from '../stores';
 import { modelApi } from '../api';
-import { MindModel } from '../types';
+import type { MindModel } from '../types';
 import { useRouter } from 'vue-router';
 import ModelEditModal from '../components/ModelEditModal.vue';
 

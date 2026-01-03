@@ -125,7 +125,10 @@ const onModelSaved = () => {
 
 const currentFilterDescription = computed(() => {
   if (!store.currentFilter || store.currentFilter.length === 0) return '全部模型';
-  return store.currentFilter.map(f => `${f.dimension}: ${f.value}`).join(' > ');
+  return store.currentFilter.map(f => {
+      if (f.value === '*') return f.dimension;
+      return `${f.dimension}: ${f.value}`;
+  }).join(' > ');
 });
 
 // Models filtered by base filter (navigation tree)
@@ -136,6 +139,9 @@ const baseModels = computed(() => {
       // Must match ALL rules in the array (AND)
       if (!store.currentFilter) return true;
       return store.currentFilter.every(rule => {
+          if (rule.value === '*') {
+              return m.tags[rule.dimension] && m.tags[rule.dimension].length > 0;
+          }
           return m.tags[rule.dimension]?.includes(rule.value);
       });
   });

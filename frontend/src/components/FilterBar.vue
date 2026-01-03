@@ -39,15 +39,19 @@
             <button
                 v-for="tag in getUniqueTags(dim.name)"
                 :key="tag"
-                @click="store.setAdditionalFilter(dim.name, tag)"
+                @click="toggleFilter(dim.name, tag)"
+                :disabled="isLocked(dim.name, tag)"
                 :class="[
                     'px-2 py-1 text-xs rounded border transition-colors duration-200',
-                    isSelected(dim.name, tag)
-                        ? 'bg-indigo-600 text-white border-indigo-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
+                    isLocked(dim.name, tag)
+                        ? 'bg-gray-200 text-gray-500 border-gray-200 cursor-not-allowed'
+                        : isSelected(dim.name, tag)
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'
                 ]"
             >
                 {{ tag }}
+                <span v-if="isLocked(dim.name, tag)" class="ml-1 text-[10px] text-gray-400">🔒</span>
             </button>
         </div>
       </div>
@@ -95,7 +99,21 @@ const getUniqueTags = (dimension: string) => {
 };
 
 const isSelected = (dimension: string, tag: string) => {
+    // Check if it's locked (base filter)
+    if (isLocked(dimension, tag)) return true;
+    // Check additional filters
     return store.additionalFilters[dimension]?.includes(tag);
+};
+
+const isLocked = (dimension: string, tag: string) => {
+    if (!store.currentFilter) return false;
+    // Check if this specific tag is in the base filter
+    return store.currentFilter.some(f => f.dimension === dimension && f.value === tag);
+};
+
+const toggleFilter = (dimension: string, tag: string) => {
+    if (isLocked(dimension, tag)) return;
+    store.setAdditionalFilter(dimension, tag);
 };
 
 const hasActiveFilters = computed(() => {

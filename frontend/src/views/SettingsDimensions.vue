@@ -1,10 +1,27 @@
 <template>
   <div class="bg-white shadow rounded-lg p-6">
     <div class="mb-6 border-b border-gray-200 pb-4 flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">维度管理</h1>
+      <div>
+         <h1 class="text-2xl font-bold text-gray-900">维度管理</h1>
+         <div class="mt-2 space-x-2">
+             <router-link to="/settings/dimensions" class="text-sm font-medium text-indigo-600">标签维度</router-link>
+             <span class="text-gray-300">|</span>
+             <router-link to="/settings/doc-types" class="text-sm font-medium text-gray-500 hover:text-gray-900">文档类型</router-link>
+         </div>
+      </div>
       <button @click="openAddModal" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none">
         添加维度
       </button>
+    </div>
+
+    <div class="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+        <div class="flex">
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    排序决定导航树层级：排序第一的为一级目录，第二的为二级，以此类推。
+                </p>
+            </div>
+        </div>
     </div>
 
     <div class="overflow-x-auto">
@@ -19,8 +36,14 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="dim in store.dimensions" :key="dim.name">
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ dim.display_order }}</td>
+          <tr v-for="(dim, index) in store.dimensions" :key="dim.name">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex items-center">
+                <span class="mr-2 w-4">{{ dim.display_order }}</span>
+                <div class="flex flex-col">
+                    <button @click="moveUp(index)" :disabled="index === 0" class="text-gray-400 hover:text-gray-600 disabled:opacity-30">▲</button>
+                    <button @click="moveDown(index)" :disabled="index === store.dimensions.length - 1" class="text-gray-400 hover:text-gray-600 disabled:opacity-30">▼</button>
+                </div>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ dim.name }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 <span v-if="dim.show_in_nav" class="text-green-600">显示</span>
@@ -28,7 +51,6 @@
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 <span :class="['px-2 py-1 rounded text-xs', dim.color || 'bg-gray-100 text-gray-800']">Example</span>
-                <span class="ml-2 text-xs text-gray-400">{{ dim.color }}</span>
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
               <button @click="editDimension(dim)" class="text-indigo-600 hover:text-indigo-900 mr-4">编辑</button>
@@ -61,8 +83,15 @@
                             <label for="show_in_nav" class="ml-2 block text-sm text-gray-900">在侧边导航显示</label>
                         </div>
                         <div class="mb-4">
-                            <label class="block text-sm font-medium text-gray-700">颜色 (Tailwind classes, e.g., 'bg-blue-100 text-blue-800')</label>
-                            <input v-model="form.color" type="text" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <label class="block text-sm font-medium text-gray-700">颜色</label>
+                            <div class="mt-2 grid grid-cols-5 gap-2">
+                                <button type="button" v-for="color in presets" :key="color"
+                                    @click="form.color = color"
+                                    :class="['h-8 w-8 rounded-full border-2 focus:outline-none', form.color === color ? 'border-gray-900' : 'border-transparent', color]">
+                                </button>
+                            </div>
+                            <label class="block text-xs font-medium text-gray-500 mt-2">自定义 (Tailwind classes or Hex)</label>
+                             <input v-model="form.color" type="text" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
                         </div>
                         <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
                             <button type="submit" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:col-start-2 sm:text-sm">保存</button>
@@ -79,7 +108,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
 import { useMainStore } from '../stores';
-import { TagDimension } from '../types';
+import type { TagDimension } from '../types';
 import { configApi } from '../api';
 
 const store = useMainStore();
@@ -93,6 +122,19 @@ const form = reactive({
     color: '',
     show_in_nav: true
 });
+
+const presets = [
+    'bg-gray-100 text-gray-800',
+    'bg-red-100 text-red-800',
+    'bg-yellow-100 text-yellow-800',
+    'bg-green-100 text-green-800',
+    'bg-blue-100 text-blue-800',
+    'bg-indigo-100 text-indigo-800',
+    'bg-purple-100 text-purple-800',
+    'bg-pink-100 text-pink-800',
+    'bg-orange-100 text-orange-800',
+    'bg-teal-100 text-teal-800',
+];
 
 const openAddModal = () => {
     isEdit.value = false;
@@ -153,6 +195,43 @@ const deleteDimension = async (dim: TagDimension) => {
     } catch (e) {
         console.error(e);
         alert('删除失败');
+    }
+};
+
+const moveUp = async (index: number) => {
+    if (index === 0) return;
+    const current = store.dimensions[index];
+    const prev = store.dimensions[index - 1];
+    await swapOrder(current, prev);
+};
+
+const moveDown = async (index: number) => {
+    if (index === store.dimensions.length - 1) return;
+    const current = store.dimensions[index];
+    const next = store.dimensions[index + 1];
+    await swapOrder(current, next);
+};
+
+const swapOrder = async (a: TagDimension, b: TagDimension) => {
+    try {
+        const orderA = a.display_order;
+        const orderB = b.display_order;
+
+        await configApi.updateDimension(a.name, {
+            display_order: orderB,
+            color: a.color,
+            show_in_nav: a.show_in_nav !== undefined ? !!a.show_in_nav : true
+        });
+        await configApi.updateDimension(b.name, {
+            display_order: orderA,
+            color: b.color,
+            show_in_nav: b.show_in_nav !== undefined ? !!b.show_in_nav : true
+        });
+
+        await store.fetchConfig();
+    } catch (e) {
+        console.error(e);
+        alert('排序更新失败');
     }
 };
 </script>

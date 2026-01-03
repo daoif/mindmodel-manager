@@ -29,7 +29,7 @@ import type { NavigationNode } from '../types';
 import { useMainStore } from '../stores';
 import { useRouter } from 'vue-router';
 
-const props = defineProps<{
+defineProps<{
   nodes: NavigationNode[];
 }>();
 

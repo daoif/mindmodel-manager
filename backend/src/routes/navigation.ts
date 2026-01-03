@@ -142,6 +142,7 @@ router.get('/', async (req, res) => {
             id: `dim-${dim.name}`,
             name: dim.name,
             type: 'auto',
+            rule: [{ dimension: dim.name, value: '*' }],
             children: children
         };
 

@@ -1,7 +1,14 @@
 <template>
   <div class="bg-white shadow rounded-lg p-6">
     <div class="mb-6 border-b border-gray-200 pb-4 flex justify-between items-center">
-      <h1 class="text-2xl font-bold text-gray-900">文档类型管理</h1>
+      <div>
+         <h1 class="text-2xl font-bold text-gray-900">文档类型管理</h1>
+         <div class="mt-2 space-x-2">
+             <router-link to="/settings/dimensions" class="text-sm font-medium text-gray-500 hover:text-gray-900">标签维度</router-link>
+             <span class="text-gray-300">|</span>
+             <router-link to="/settings/doc-types" class="text-sm font-medium text-indigo-600">文档类型</router-link>
+         </div>
+      </div>
       <button @click="openAddModal" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none">
         添加类型
       </button>
@@ -17,8 +24,14 @@
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
-          <tr v-for="type in store.docTypes" :key="type.name">
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ type.display_order }}</td>
+          <tr v-for="(type, index) in store.docTypes" :key="type.name">
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 flex items-center">
+                <span class="mr-2 w-4">{{ type.display_order }}</span>
+                <div class="flex flex-col">
+                    <button @click="moveUp(index)" :disabled="index === 0" class="text-gray-400 hover:text-gray-600 disabled:opacity-30">▲</button>
+                    <button @click="moveDown(index)" :disabled="index === store.docTypes.length - 1" class="text-gray-400 hover:text-gray-600 disabled:opacity-30">▼</button>
+                </div>
+            </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ type.name }}</td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
               <button @click="editType(type)" class="text-indigo-600 hover:text-indigo-900 mr-4">编辑</button>
@@ -61,7 +74,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
 import { useMainStore } from '../stores';
-import { DocType } from '../types';
+import type { DocType } from '../types';
 import { configApi } from '../api';
 
 const store = useMainStore();
@@ -127,6 +140,35 @@ const deleteType = async (type: DocType) => {
     } catch (e) {
         console.error(e);
         alert('删除失败');
+    }
+};
+
+const moveUp = async (index: number) => {
+    if (index === 0) return;
+    const current = store.docTypes[index];
+    const prev = store.docTypes[index - 1];
+    await swapOrder(current, prev);
+};
+
+const moveDown = async (index: number) => {
+    if (index === store.docTypes.length - 1) return;
+    const current = store.docTypes[index];
+    const next = store.docTypes[index + 1];
+    await swapOrder(current, next);
+};
+
+const swapOrder = async (a: DocType, b: DocType) => {
+    try {
+        const orderA = a.display_order;
+        const orderB = b.display_order;
+
+        await configApi.updateDocType(a.name, { ...a, display_order: orderB });
+        await configApi.updateDocType(b.name, { ...b, display_order: orderA });
+
+        await store.fetchConfig();
+    } catch (e) {
+        console.error(e);
+        alert('排序更新失败');
     }
 };
 </script>
