@@ -7,6 +7,11 @@ import path from 'path';
 const router = Router();
 const DOCS_DIR = path.resolve(process.cwd(), '../data/docs');
 
+// 简单的路径验证，防止目录遍历
+const isValidFilename = (filename: string) => {
+  return /^[a-zA-Z0-9_\-\u4e00-\u9fa5]+$/.test(filename) && !filename.includes('..') && !filename.includes('/');
+};
+
 // 获取模型列表（支持筛选）
 router.get('/', async (req, res) => {
   try {
@@ -197,6 +202,11 @@ router.get('/:id/docs', async (req, res) => {
 router.get('/:id/docs/:type', async (req, res) => {
   try {
     const { id, type } = req.params;
+
+    if (!isValidFilename(type)) {
+      return res.status(400).json({ error: '无效的文件名' });
+    }
+
     const filePath = path.join(DOCS_DIR, id, `${type}.md`);
 
     if (!fs.existsSync(filePath)) {
@@ -216,6 +226,11 @@ router.put('/:id/docs/:type', async (req, res) => {
   try {
     const { id, type } = req.params;
     const { content } = req.body;
+
+    if (!isValidFilename(type)) {
+      return res.status(400).json({ error: '无效的文件名' });
+    }
+
     const modelDir = path.join(DOCS_DIR, id);
     const filePath = path.join(modelDir, `${type}.md`);
 
@@ -232,6 +247,11 @@ router.put('/:id/docs/:type', async (req, res) => {
 router.delete('/:id/docs/:type', async (req, res) => {
   try {
     const { id, type } = req.params;
+
+    if (!isValidFilename(type)) {
+      return res.status(400).json({ error: '无效的文件名' });
+    }
+
     const filePath = path.join(DOCS_DIR, id, `${type}.md`);
 
     if (fs.existsSync(filePath)) {

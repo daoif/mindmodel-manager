@@ -11,6 +11,21 @@ Thumbs.db
 # 依赖目录
 node_modules/
 
+# 构建产物
+dist/
+build/
+*.local
+
+# Lock 文件
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# 数据库
+data/*.db
+*.db
+*.sqlite
+
 # 临时文件
 *.tmp
 *.temp
