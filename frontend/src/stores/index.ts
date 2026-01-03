@@ -10,8 +10,13 @@ export const useMainStore = defineStore('main', () => {
   const docTypes = ref<DocType[]>([]);
   const loading = ref(false);
 
-  // 当前选中的导航节点过滤规则
-  const currentFilter = ref<{ dimension: string; value: string } | null>(null);
+  // 当前选中的导航节点过滤规则 (基础筛选)
+  const currentFilter = ref<{ dimension: string; value: string }[] | null>(null);
+
+  // 附加筛选（来自顶部筛选栏）
+  const additionalFilters = ref<Record<string, string[]>>({});
+  // 关键词
+  const keyword = ref('');
 
   const fetchNavigation = async () => {
     try {
@@ -45,8 +50,31 @@ export const useMainStore = defineStore('main', () => {
     await Promise.all([fetchConfig(), fetchNavigation(), fetchModels()]);
   };
 
-  const setFilter = (rule: { dimension: string; value: string } | null) => {
+  const setFilter = (rule: { dimension: string; value: string }[] | null) => {
     currentFilter.value = rule;
+    // 重置附加筛选和关键词? 根据需求，可能需要保留或重置。
+    // "展开状态在当前会话内保持，刷新后恢复默认" implies some state persistence, but usually changing base filter clears others or refines them.
+    // 简单起见，这里不重置，除非用户显式清除。
+  };
+
+  const setAdditionalFilter = (dimension: string, value: string) => {
+    if (!additionalFilters.value[dimension]) {
+      additionalFilters.value[dimension] = [];
+    }
+    const index = additionalFilters.value[dimension].indexOf(value);
+    if (index > -1) {
+      additionalFilters.value[dimension].splice(index, 1);
+      if (additionalFilters.value[dimension].length === 0) {
+        delete additionalFilters.value[dimension];
+      }
+    } else {
+      additionalFilters.value[dimension].push(value);
+    }
+  };
+
+  const clearAdditionalFilters = () => {
+    additionalFilters.value = {};
+    keyword.value = '';
   };
 
   return {
@@ -56,10 +84,14 @@ export const useMainStore = defineStore('main', () => {
     docTypes,
     loading,
     currentFilter,
+    additionalFilters,
+    keyword,
     fetchNavigation,
     fetchModels,
     fetchConfig,
     init,
-    setFilter
+    setFilter,
+    setAdditionalFilter,
+    clearAdditionalFilters
   };
 });

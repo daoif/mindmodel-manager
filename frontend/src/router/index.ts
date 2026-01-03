@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import HomeView from '../views/HomeView.vue';
 import ModelDetailView from '../views/ModelDetailView.vue';
-import ModelEditView from '../views/ModelEditView.vue';
+import SettingsDimensions from '../views/SettingsDimensions.vue';
+import SettingsDocTypes from '../views/SettingsDocTypes.vue';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -10,21 +11,20 @@ const routes: RouteRecordRaw[] = [
     component: HomeView
   },
   {
-    path: '/model/new',
-    name: 'ModelCreate',
-    component: ModelEditView
-  },
-  {
     path: '/model/:id',
     name: 'ModelDetail',
     component: ModelDetailView,
     props: true
   },
   {
-    path: '/model/:id/edit',
-    name: 'ModelEdit',
-    component: ModelEditView,
-    props: true
+    path: '/settings/dimensions',
+    name: 'SettingsDimensions',
+    component: SettingsDimensions
+  },
+  {
+    path: '/settings/doc-types',
+    name: 'SettingsDocTypes',
+    component: SettingsDocTypes
   }
 ];
 

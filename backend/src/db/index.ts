@@ -36,7 +36,9 @@ export const initDb = async () => {
 
     CREATE TABLE IF NOT EXISTS tag_dimensions (
       name TEXT PRIMARY KEY,
-      display_order INTEGER
+      display_order INTEGER,
+      color TEXT,
+      show_in_nav BOOLEAN DEFAULT 1
     );
 
     CREATE TABLE IF NOT EXISTS doc_types (
@@ -66,11 +68,46 @@ const seedData = async () => {
   // 检查是否需要填充 tag_dimensions
   const tagCount = await db.get('SELECT count(*) as count FROM tag_dimensions');
   if (tagCount.count === 0) {
-    const dimensions = ['场景', '阶段', '类型', '分类'];
+    const dimensions = [
+      { name: '场景', color: 'bg-blue-100 text-blue-800' },
+      { name: '阶段', color: 'bg-green-100 text-green-800' },
+      { name: '类型', color: 'bg-purple-100 text-purple-800' },
+      { name: '分类', color: 'bg-orange-100 text-orange-800' }
+    ];
     for (let i = 0; i < dimensions.length; i++) {
-      await db.run('INSERT INTO tag_dimensions (name, display_order) VALUES (?, ?)', [dimensions[i], i + 1]);
+      await db.run(
+        'INSERT INTO tag_dimensions (name, display_order, color) VALUES (?, ?, ?)',
+        [dimensions[i].name, i + 1, dimensions[i].color]
+      );
     }
     console.log('已填充 tag_dimensions 数据');
+  } else {
+    // Attempt to add color column if it doesn't exist (for existing DBs)
+    try {
+       await db.run('ALTER TABLE tag_dimensions ADD COLUMN color TEXT');
+       // Update default colors
+       const colors: Record<string, string> = {
+         '场景': 'bg-blue-100 text-blue-800',
+         '阶段': 'bg-green-100 text-green-800',
+         '类型': 'bg-purple-100 text-purple-800',
+         '分类': 'bg-orange-100 text-orange-800'
+       };
+       for (const [name, color] of Object.entries(colors)) {
+         await db.run('UPDATE tag_dimensions SET color = ? WHERE name = ?', [color, name]);
+       }
+       console.log('Added color column to tag_dimensions');
+    } catch (e) {
+       // Column likely exists
+    }
+
+    try {
+        await db.run('ALTER TABLE tag_dimensions ADD COLUMN show_in_nav BOOLEAN DEFAULT 1');
+        // Exclude '类型' by default to match legacy logic
+        await db.run('UPDATE tag_dimensions SET show_in_nav = 0 WHERE name = "类型"');
+        console.log('Added show_in_nav column to tag_dimensions');
+    } catch (e) {
+        // Column likely exists
+    }
   }
 
   // 检查是否需要填充 doc_types

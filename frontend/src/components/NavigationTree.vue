@@ -48,12 +48,19 @@ const toggle = (id: string) => {
 };
 
 const isSelected = (node: NavigationNode) => {
-  // 简单判断逻辑，实际可能需要更复杂
-  if (!store.currentFilter && node.id === 'all') return true;
-  if (store.currentFilter && node.rule &&
-      store.currentFilter.dimension === node.rule.dimension &&
-      store.currentFilter.value === node.rule.value) {
-    return true;
+  // Handle 'all' case
+  if ((!store.currentFilter || store.currentFilter.length === 0) && node.id === 'all') return true;
+
+  // Handle array rule
+  if (store.currentFilter && node.rule) {
+      if (node.rule.length !== store.currentFilter.length) return false;
+      // Check if all rules match
+      // Assuming order might match if generated consistently, or use explicit check
+      // For simplicity, strict equality check of key fields
+      return node.rule.every((r, i) => {
+          const filterRule = store.currentFilter![i];
+          return filterRule && filterRule.dimension === r.dimension && filterRule.value === r.value;
+      });
   }
   return false;
 };

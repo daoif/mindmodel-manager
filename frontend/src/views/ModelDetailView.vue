@@ -13,7 +13,7 @@
             <span
               v-for="val in values"
               :key="val"
-              class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+              :class="['inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium', getTagColor(dim)]"
             >
               {{ dim }}: {{ val }}
             </span>
@@ -23,7 +23,7 @@
       </div>
       <div class="flex space-x-3">
         <button
-          @click="$router.push(`/model/${model.id}/edit`)"
+          @click="openEditModal"
           class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none"
         >
           编辑
@@ -103,6 +103,8 @@
       </div>
     </div>
   </div>
+
+  <ModelEditModal v-model="showEditModal" :model-id="model?.id" @saved="onModelUpdated" />
 </template>
 
 <script setup lang="ts">
@@ -111,6 +113,7 @@ import { useMainStore } from '../stores';
 import { modelApi } from '../api';
 import { MindModel } from '../types';
 import { useRouter } from 'vue-router';
+import ModelEditModal from '../components/ModelEditModal.vue';
 
 const props = defineProps<{
   id: string;
@@ -125,6 +128,20 @@ const currentDocContent = ref('');
 const isEditingDoc = ref(false);
 const editingContent = ref('');
 const copySuccess = ref(false);
+const showEditModal = ref(false);
+
+const openEditModal = () => {
+    showEditModal.value = true;
+};
+
+const onModelUpdated = async () => {
+    await loadModel();
+};
+
+const getTagColor = (dimName: string) => {
+    const dim = store.dimensions.find(d => d.name === dimName);
+    return dim?.color || 'bg-gray-100 text-gray-800';
+};
 
 const loadModel = async () => {
   loading.value = true;

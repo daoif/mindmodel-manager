@@ -51,13 +51,27 @@ export const configApi = {
     const response = await api.get<DocType[]>('/config/doc-types');
     return response.data;
   },
-  addDimension: async (name: string) => {
-    const response = await api.post<TagDimension>('/config/tag-dimensions', { name });
+  addDimension: async (data: { name: string }) => {
+    const response = await api.post<TagDimension>('/config/tag-dimensions', data);
     return response.data;
   },
-  addDocType: async (name: string) => {
-    const response = await api.post<DocType>('/config/doc-types', { name });
+  updateDimension: async (name: string, data: { newName?: string, display_order?: number, color?: string }) => {
+    const response = await api.put<TagDimension>(`/config/tag-dimensions/${name}`, data);
     return response.data;
+  },
+  deleteDimension: async (name: string) => {
+    await api.delete(`/config/tag-dimensions/${name}`);
+  },
+  addDocType: async (data: { name: string }) => {
+    const response = await api.post<DocType>('/config/doc-types', data);
+    return response.data;
+  },
+  updateDocType: async (name: string, data: { newName?: string, display_order?: number }) => {
+    const response = await api.put<DocType>(`/config/doc-types/${name}`, data);
+    return response.data;
+  },
+  deleteDocType: async (name: string) => {
+    await api.delete(`/config/doc-types/${name}`);
   }
 };
 

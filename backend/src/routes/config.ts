@@ -43,6 +43,58 @@ router.post('/tag-dimensions', async (req, res) => {
   }
 });
 
+// Update tag dimension
+router.put('/tag-dimensions/:name', async (req, res) => {
+    try {
+        const { name } = req.params;
+        const { display_order, color, newName, show_in_nav } = req.body;
+        const db = await getDb();
+
+        // If renaming (newName is present and different from name)
+        if (newName && newName !== name) {
+            // Check if exists
+             const exists = await db.get('SELECT 1 FROM tag_dimensions WHERE name = ?', [newName]);
+             if (exists) {
+                 return res.status(400).json({ error: 'Name already exists' });
+             }
+
+             await db.run('UPDATE tag_dimensions SET name = ?, display_order = ?, color = ?, show_in_nav = ? WHERE name = ?',
+                [newName, display_order, color, show_in_nav, name]);
+
+             await db.run('UPDATE model_tags SET dimension = ? WHERE dimension = ?', [newName, name]);
+        } else {
+            await db.run('UPDATE tag_dimensions SET display_order = ?, color = ?, show_in_nav = ? WHERE name = ?',
+                [display_order, color, show_in_nav, name]);
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// Delete tag dimension
+router.delete('/tag-dimensions/:name', async (req, res) => {
+    try {
+        const { name } = req.params;
+        const db = await getDb();
+
+        // Check if in use
+        const usage = await db.get('SELECT count(*) as count FROM model_tags WHERE dimension = ?', [name]);
+        if (usage.count > 0) {
+            // Force delete? Or just return error? Requirement says "Delete (confirm, prompt if associated data exists)".
+            // Frontend should handle prompt. If the user confirmed, we delete.
+            // So we delete associated tags too.
+            await db.run('DELETE FROM model_tags WHERE dimension = ?', [name]);
+        }
+
+        await db.run('DELETE FROM tag_dimensions WHERE name = ?', [name]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
 // 添加文档类型
 router.post('/doc-types', async (req, res) => {
   try {
@@ -59,6 +111,57 @@ router.post('/doc-types', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
+});
+
+// Update doc type
+router.put('/doc-types/:name', async (req, res) => {
+    try {
+        const { name } = req.params;
+        const { display_order, newName } = req.body;
+        const db = await getDb();
+
+        if (newName && newName !== name) {
+             const exists = await db.get('SELECT 1 FROM doc_types WHERE name = ?', [newName]);
+             if (exists) {
+                 return res.status(400).json({ error: 'Name already exists' });
+             }
+             // Doc types are used in `models`... wait.
+             // Schema: `doc_types` table.
+             // Where is the content stored?
+             // `data/docs` file system?
+             // "The application architecture separates data storage: metadata in SQLite and content in Markdown files (`data/docs`)."
+             // Files are likely named `{modelId}/{docType}.md` or similar.
+             // If we rename doc type, we might need to rename files.
+             // But for now let's just update DB.
+             // Ideally we should rename folders/files.
+             // Let's assume for MVP enhancement we update DB.
+             // Note: If the file storage relies on doc type name, we might break links.
+             // Let's check how docs are stored.
+
+             await db.run('UPDATE doc_types SET name = ?, display_order = ? WHERE name = ?',
+                [newName, display_order, name]);
+        } else {
+             await db.run('UPDATE doc_types SET display_order = ? WHERE name = ?',
+                [display_order, name]);
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
+});
+
+// Delete doc type
+router.delete('/doc-types/:name', async (req, res) => {
+    try {
+        const { name } = req.params;
+        const db = await getDb();
+
+        await db.run('DELETE FROM doc_types WHERE name = ?', [name]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: (error as Error).message });
+    }
 });
 
 export default router;

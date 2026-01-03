@@ -17,13 +17,15 @@ export interface NavigationNode {
   id: string;
   name: string;
   type: "auto" | "manual";
-  rule?: { dimension: string; value: string } | null;
+  rule?: { dimension: string; value: string }[] | null;
   children: NavigationNode[];
 }
 
 export interface TagDimension {
   name: string;
   display_order: number;
+  color?: string;
+  show_in_nav?: boolean | number;
 }
 
 export interface DocType {
