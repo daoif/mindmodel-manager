@@ -34,6 +34,7 @@ router.get('/', async (req, res) => {
         id: 'all',
         name: '全部',
         type: 'auto',
+        rule: null, // 用于清除筛选
         children: []
       }
     ];
