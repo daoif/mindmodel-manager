@@ -16,15 +16,8 @@ dist/
 build/
 *.local
 
-# Lock 文件
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
-
-# 数据库
-data/*.db
-*.db
-*.sqlite
+# 数据目录（包含 SQLite 数据库和用户文档）
+data/
 
 # 临时文件
 *.tmp
