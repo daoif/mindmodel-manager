@@ -11,8 +11,10 @@
       <div class="w-full px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex-shrink-0 flex items-center gap-3">
-            <img src="/logo.png" alt="MindModel" class="h-8 w-8" />
-            <h1 class="text-xl font-bold text-gray-900">MindModel Manager</h1>
+             <router-link to="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                <img src="/logo.png" alt="MindModel" class="h-8 w-8" />
+                <h1 class="text-xl font-bold text-gray-900">MindModel Manager</h1>
+             </router-link>
           </div>
           <div class="flex items-center space-x-4">
              <router-link to="/help" class="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">
