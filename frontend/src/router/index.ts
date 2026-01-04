@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue';
 import SettingsDimensions from '../views/SettingsDimensions.vue';
 import SettingsDocTypes from '../views/SettingsDocTypes.vue';
 import SettingsDesktop from '../views/SettingsDesktop.vue';
+import HelpView from '../views/HelpView.vue';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -24,6 +25,11 @@ const routes: RouteRecordRaw[] = [
     path: '/settings/desktop',
     name: 'SettingsDesktop',
     component: SettingsDesktop
+  },
+  {
+    path: '/help',
+    name: 'Help',
+    component: HelpView
   }
 ];
 

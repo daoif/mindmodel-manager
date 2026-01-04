@@ -111,11 +111,7 @@ Copy-Item -Recurse (Join-Path $ProjectRoot "backend\dist") (Join-Path $BackendDe
 Copy-Item -Recurse (Join-Path $ProjectRoot "backend\node_modules") (Join-Path $BackendDest "node_modules")
 Copy-Item (Join-Path $ProjectRoot "backend\package.json") (Join-Path $BackendDest "package.json")
 
-# 复制 data 目录 (如果存在)
-$DataDir = Join-Path $ProjectRoot "data"
-if (Test-Path $DataDir) {
-    Copy-Item -Recurse $DataDir (Join-Path $ResDir "data")
-}
+
 
 # 复制缓存的 Node.js
 $NodeDest = Join-Path $ResDir "node"

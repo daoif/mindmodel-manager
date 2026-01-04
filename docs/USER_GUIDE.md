@@ -1,5 +1,9 @@
 # 📖 MindModel Manager 使用指南
 
+
+- **GitHub**: [https://github.com/daoif/mindmodel-manager](https://github.com/daoif/mindmodel-manager)
+- **QQ 交流群**: 993975349
+
 欢迎使用 MindModel Manager！本指南将帮助您快速上手，管理和运用您的思维模型库。
 
 ## 🚀 快速开始

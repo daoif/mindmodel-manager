@@ -1,5 +1,5 @@
 <template>
-  <nav class="flex space-x-4 border-b border-gray-200 mb-6 pb-2">
+  <nav class="flex space-x-4 border-b border-gray-200 mb-6 pb-2 overflow-x-auto">
     <router-link 
       to="/settings/dimensions" 
       class="text-sm font-medium transition-colors duration-200"
