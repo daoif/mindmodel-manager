@@ -26,3 +26,7 @@ data/
 
 # Agent
 .agent
+
+# Excluded Docs
+in_docs/
+初始材料/
