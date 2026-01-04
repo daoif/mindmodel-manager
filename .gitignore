@@ -23,3 +23,6 @@ data/
 *.tmp
 *.temp
 *.log
+
+# Agent
+.agent
