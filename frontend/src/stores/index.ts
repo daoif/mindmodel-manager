@@ -90,6 +90,12 @@ export const useMainStore = defineStore('main', () => {
     keyword.value = '';
   };
 
+  const resetAll = () => {
+    currentFilter.value = null;
+    additionalFilters.value = {};
+    keyword.value = '';
+  };
+
   const copyButtonPosition = ref(localStorage.getItem('copy_button_position') || 'footer');
   watch(copyButtonPosition, (val) => {
     localStorage.setItem('copy_button_position', val);
@@ -113,6 +119,7 @@ export const useMainStore = defineStore('main', () => {
     init,
     setFilter,
     setAdditionalFilter,
-    clearAdditionalFilters
+    clearAdditionalFilters,
+    resetAll
   };
 });
