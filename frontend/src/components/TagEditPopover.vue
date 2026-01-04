@@ -13,42 +13,47 @@
         </slot>
     </div>
 
-    <div
-      v-if="isOpen"
-      class="origin-top-right absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
-      role="menu"
-      aria-orientation="vertical"
-      aria-labelledby="menu-button"
-      tabindex="-1"
-    >
-      <div class="py-1" role="none">
-        <div class="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
-             <span class="text-xs font-semibold text-gray-500">{{ dimension }}</span>
-             <button @click="close" class="text-gray-400 hover:text-gray-600">×</button>
+    <Teleport to="body">
+        <div
+            v-if="isOpen"
+            ref="popoverRef"
+            :style="popoverStyle"
+            class="fixed rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-[9999]"
+            role="menu"
+            aria-orientation="vertical"
+            aria-labelledby="menu-button"
+            tabindex="-1"
+            @click.stop
+        >
+        <div class="py-1" role="none">
+            <div class="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+                <span class="text-xs font-semibold text-gray-500">{{ dimension }}</span>
+                <button @click="close" class="text-gray-400 hover:text-gray-600">×</button>
+            </div>
+            <div class="max-h-60 overflow-y-auto">
+                <template v-for="tag in availableTags" :key="tag">
+                    <a
+                        href="#"
+                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"
+                        @click.prevent="toggleTag(tag)"
+                        role="menuitem"
+                    >
+                        <span>{{ tag }}</span>
+                        <span v-if="selectedTags.includes(tag)" class="text-indigo-600">✓</span>
+                    </a>
+                </template>
+                <div v-if="availableTags.length === 0" class="px-4 py-2 text-sm text-gray-500 italic">
+                    无可用标签
+                </div>
+            </div>
         </div>
-        <div class="max-h-60 overflow-y-auto">
-            <template v-for="tag in availableTags" :key="tag">
-                 <a
-                    href="#"
-                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center justify-between"
-                    @click.prevent="toggleTag(tag)"
-                    role="menuitem"
-                >
-                    <span>{{ tag }}</span>
-                    <span v-if="selectedTags.includes(tag)" class="text-indigo-600">✓</span>
-                </a>
-            </template>
-             <div v-if="availableTags.length === 0" class="px-4 py-2 text-sm text-gray-500 italic">
-                 无可用标签
-             </div>
         </div>
-      </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useMainStore } from '../stores';
 import { modelApi } from '../api';
 
@@ -64,15 +69,15 @@ const emit = defineEmits(['updated']);
 const store = useMainStore();
 const isOpen = ref(false);
 const containerRef = ref<HTMLElement | null>(null);
+const popoverRef = ref<HTMLElement | null>(null);
 const selectedTags = ref<string[]>([...props.initialTags]);
+const popoverStyle = ref({
+    top: '0px',
+    left: '0px',
+    width: '224px' // w-56 equivalent
+});
 
 // Compute available tags for this dimension
-// We should probably get this from configuration or aggregate from all models.
-// `store.dimensions` only has metadata.
-// But we can aggregate from `store.models` (which might be incomplete if paginated, but here we have all)
-// OR better: In `SettingsDimensions`, we don't manage specific tag values (they are created on the fly usually or pre-defined?).
-// The requirement says: "Show all available tags list".
-// If tags are free-text entered in edit modal, we can collect all unique ones.
 const availableTags = computed(() => {
     const tags = new Set<string>();
     store.models.forEach(m => {
@@ -85,8 +90,47 @@ const availableTags = computed(() => {
     return Array.from(tags).sort();
 });
 
-const toggle = () => {
-    isOpen.value = !isOpen.value;
+const calculatePosition = () => {
+    if (!containerRef.value) return;
+    const rect = containerRef.value.getBoundingClientRect();
+    const width = 224; // w-56
+    const height = 250; // Approximated max height (since we have max-h-60 which is 15rem + header + padding ~= 240-260px)
+    
+    // Default: Position below and aligned to left
+    let top = rect.bottom + 5;
+    let left = rect.left;
+    
+    // Check vertical overflow
+    if (top + height > window.innerHeight) {
+        // Flip up
+        top = rect.top - height - 5;
+        // If it goes off top, stick to top?
+        if (top < 0) top = 10;
+        
+        // Since we are flipping up, we might want to ensure the maxHeight is dynamic if space is tight?
+        // But for now, simple flip is usually enough given 250px is small.
+    }
+    
+    // Adjustment to ensure it doesn't go off-screen right
+    if (left + width > window.innerWidth) {
+        left = window.innerWidth - width - 10;
+    }
+
+    popoverStyle.value = {
+        top: `${top}px`,
+        left: `${left}px`,
+        width: `${width}px`
+    };
+};
+
+const toggle = async () => {
+    if (isOpen.value) {
+        close();
+    } else {
+        isOpen.value = true;
+        await nextTick();
+        calculatePosition();
+    }
 };
 
 const close = () => {
@@ -115,23 +159,43 @@ const toggleTag = async (tag: string) => {
             model.tags[props.dimension] = newTags;
         }
         emit('updated');
+        
+        // Don't close immediately? Or do? 
+        // User might want to multi-select. 
+        // Current logic keeps it open.
     } catch (e) {
         console.error('Failed to update tags', e);
-        // Revert?
     }
 };
 
 const handleClickOutside = (event: MouseEvent) => {
-  if (containerRef.value && !containerRef.value.contains(event.target as Node)) {
+  // Check if click is inside container (trigger) OR inside popover
+  const isClickInsideContainer = containerRef.value && containerRef.value.contains(event.target as Node);
+  const isClickInsidePopover = popoverRef.value && popoverRef.value.contains(event.target as Node);
+  
+  if (!isClickInsideContainer && !isClickInsidePopover) {
     close();
   }
 };
 
+const handleScroll = () => {
+    if (isOpen.value) {
+        // Option A: Update position (Computationally expensive if continuous)
+        // Option B: Close popover (Standard behavior for simple popovers)
+        // Let's trying updating position for better UX, or close if simpler. Close is safer.
+        calculatePosition();
+    }
+};
+
 onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
+  document.addEventListener('mousedown', handleClickOutside); // mousedown handles clicks better than click for outside detection sometimes
+  window.addEventListener('scroll', handleScroll, true); // true for capture, to detect scroll of any parent
+  window.addEventListener('resize', handleScroll); 
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('mousedown', handleClickOutside);
+  window.removeEventListener('scroll', handleScroll, true);
+  window.removeEventListener('resize', handleScroll);
 });
 </script>

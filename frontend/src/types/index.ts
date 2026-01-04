@@ -31,4 +31,6 @@ export interface TagDimension {
 export interface DocType {
   name: string;
   display_order: number;
+  show_in_copy?: boolean | number;
+  short_name?: string;
 }

@@ -24,19 +24,19 @@ export const modelApi = {
     return response.data;
   },
   updateTags: async (id: string, tags: Record<string, string[]>) => {
-      // Typically backend expects full update or partial?
-      // Our backend PUT /models/:id expects { name, description, tags }.
-      // If we just send tags, it should be fine if backend handles partial updates properly.
-      // Let's check backend `routes/models.ts`.
-      // Assuming it handles partials. If not, we might need to fetch first.
-      // Wait, `update` function above is generic. I can just use `update(id, { tags })`.
-      // But `tags` in `MindModel` is `Record<string, string[]>`.
-      // We need to merge with existing tags if the backend replaces all tags.
-      // Let's add a specific method if needed, or rely on `update`.
-      // For now, let's try to use a specific endpoint or logic.
-      // Actually, checking backend is safer.
-      const response = await api.put<MindModel>(`/models/${id}/tags`, { tags });
-      return response.data;
+    // Typically backend expects full update or partial?
+    // Our backend PUT /models/:id expects { name, description, tags }.
+    // If we just send tags, it should be fine if backend handles partial updates properly.
+    // Let's check backend `routes/models.ts`.
+    // Assuming it handles partials. If not, we might need to fetch first.
+    // Wait, `update` function above is generic. I can just use `update(id, { tags })`.
+    // But `tags` in `MindModel` is `Record<string, string[]>`.
+    // We need to merge with existing tags if the backend replaces all tags.
+    // Let's add a specific method if needed, or rely on `update`.
+    // For now, let's try to use a specific endpoint or logic.
+    // Actually, checking backend is safer.
+    const response = await api.put<MindModel>(`/models/${id}/tags`, { tags });
+    return response.data;
   },
   delete: async (id: string) => {
     await api.delete(`/models/${id}`);
@@ -77,11 +77,11 @@ export const configApi = {
   deleteDimension: async (name: string) => {
     await api.delete(`/config/tag-dimensions/${name}`);
   },
-  addDocType: async (data: { name: string }) => {
+  addDocType: async (data: { name: string, show_in_copy?: boolean, short_name?: string }) => {
     const response = await api.post<DocType>('/config/doc-types', data);
     return response.data;
   },
-  updateDocType: async (name: string, data: { newName?: string, display_order?: number }) => {
+  updateDocType: async (name: string, data: { newName?: string, display_order?: number, show_in_copy?: boolean, short_name?: string }) => {
     const response = await api.put<DocType>(`/config/doc-types/${name}`, data);
     return response.data;
   },

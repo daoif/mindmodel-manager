@@ -2,7 +2,7 @@
   <div class="h-screen flex flex-col overflow-hidden bg-gray-50">
     <!-- Header -->
     <header class="bg-white shadow-sm z-10">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="w-full px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
           <div class="flex-shrink-0 flex items-center">
             <h1 class="text-xl font-bold text-gray-900">MindModel Manager</h1>
@@ -25,7 +25,7 @@
       </aside>
 
       <!-- Main Content -->
-      <main class="flex-1 overflow-y-auto p-8">
+      <main class="flex-1 overflow-y-auto p-8 pb-64">
         <router-view></router-view>
       </main>
     </div>

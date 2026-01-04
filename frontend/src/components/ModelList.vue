@@ -1,87 +1,71 @@
 <template>
   <div class="bg-white shadow overflow-hidden sm:rounded-md">
     <ul role="list" class="divide-y divide-gray-200">
-      <li v-for="model in models" :key="model.id" class="hover:bg-gray-50">
-        <div class="px-4 py-4 sm:px-6">
-          <div class="flex items-center justify-between">
-            <div class="flex-1 min-w-0 pr-4">
-              <!-- Name Editing -->
-              <div v-if="editingId === model.id && editingField === 'name'" class="flex items-center">
-                  <input
-                    ref="editInput"
-                    type="text"
-                    v-model="editValue"
-                    @blur="saveEdit(model)"
-                    @keyup.enter="saveEdit(model)"
-                    class="block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border p-1"
-                  >
-              </div>
-              <p v-else
-                 class="text-sm font-medium text-indigo-600 truncate cursor-pointer hover:underline"
-                 @click="startEdit(model, 'name', model.name)"
-              >
-                {{ model.name }}
-              </p>
-
-              <!-- Description Editing -->
-               <div v-if="editingId === model.id && editingField === 'description'" class="mt-2">
-                  <textarea
-                    ref="editInput"
-                    v-model="editValue"
-                    @blur="saveEdit(model)"
-                    class="block w-full shadow-sm sm:text-sm border-gray-300 rounded-md border p-1"
-                    rows="2"
-                  ></textarea>
-              </div>
-              <p v-else
-                 class="mt-1 flex items-center text-sm text-gray-500 line-clamp-2 cursor-pointer hover:text-gray-900"
-                 @click="startEdit(model, 'description', model.description)"
-              >
-                {{ model.description || '无描述 (点击编辑)' }}
-              </p>
+      <li 
+        v-for="model in models" 
+        :key="model.id" 
+        class="hover:bg-gray-50 transition-colors cursor-pointer"
+        @click="openEditModal(model)"
+      >
+        <div class="px-4 h-16 flex items-center">
+            <!-- 1. Name -->
+            <div class="w-48 flex-shrink-0 mr-4">
+                <p class="text-sm font-medium text-indigo-600 truncate" :title="model.name">
+                    {{ model.name }}
+                </p>
             </div>
 
-            <div class="flex flex-col items-end flex-shrink-0 space-y-2">
-               <!-- Tags -->
-               <div class="flex flex-wrap gap-2 justify-end max-w-xs">
-                  <template v-for="dim in store.dimensions" :key="dim.name">
-                      <!-- Always show trigger for each dimension, even if empty -->
-                      <TagEditPopover
-                        :model-id="model.id"
-                        :dimension="dim.name"
-                        :initial-tags="model.tags[dim.name] || []"
-                        :color-class="dim.color || 'bg-gray-100 text-gray-800'"
-                        @updated="emit('refresh')"
-                      >
-                         <template #trigger>
-                             <template v-if="model.tags[dim.name] && model.tags[dim.name].length > 0">
-                                <span
-                                    v-for="val in model.tags[dim.name]"
-                                    :key="val"
-                                    :class="['inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer mb-1 mr-1', dim.color || 'bg-gray-100 text-gray-800']"
-                                >
-                                    {{ val }}
-                                </span>
-                             </template>
-                             <template v-else>
-                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium cursor-pointer border border-dashed border-gray-300 text-gray-400 hover:text-gray-600 mb-1 mr-1">
-                                    + {{ dim.name }}
-                                 </span>
-                             </template>
-                         </template>
-                      </TagEditPopover>
-                  </template>
-               </div>
-
-               <div class="flex items-center text-xs text-gray-400">
-                 <p>
-                   更新于 {{ formatDate(model.updated_at) }}
-                 </p>
-                 <button @click.stop="openEditModal(model)" class="ml-4 text-indigo-600 hover:text-indigo-900">详情</button>
-                 <button @click.stop="deleteModel(model)" class="ml-2 text-red-600 hover:text-red-900">删除</button>
-               </div>
+            <div v-if="store.copyButtonPosition === 'content'" class="flex gap-1 mr-4">
+                 <button
+                    v-for="dtype in visibleDocTypes"
+                    :key="dtype.name"
+                    @click.stop="copyDocContent(model.id, dtype.name)"
+                    class="px-2 py-0.5 rounded border bg-white border-gray-200 text-gray-500 text-xs hover:bg-gray-50 transition-colors whitespace-nowrap"
+                    :class="{'!text-green-600 !border-green-200 !bg-green-50': copyStatus[`${model.id}_${dtype.name}`] === 'success'}"
+                 >
+                    {{ copyStatus[`${model.id}_${dtype.name}`] === 'success' ? '已复制' : (copyStatus[`${model.id}_${dtype.name}`] === 'loading' ? '...' : (dtype.short_name || dtype.name)) }}
+                 </button>
             </div>
-          </div>
+
+            <!-- 2. Description (Elastic) -->
+            <div class="flex-1 min-w-0 mr-4">
+                <p class="text-sm text-gray-500 truncate" :title="model.description || '无描述'">
+                    {{ model.description || '-' }}
+                </p>
+            </div>
+
+            <!-- 3. Tags (Compact) -->
+            <div class="flex-shrink-0 flex items-center gap-2 max-w-[30%] overflow-hidden mr-4" @click.stop>
+                <div class="flex items-center gap-1 overflow-hidden" title="点击详情编辑标签">
+                    <template v-for="dim in store.dimensions" :key="dim.name">
+                         <span
+                            v-for="val in (model.tags[dim.name] || [])"
+                            :key="`${dim.name}-${val}`"
+                            :class="['inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap', dim.color || 'bg-gray-100 text-gray-800']"
+                         >
+                            {{ val }}
+                        </span>
+                    </template>
+                </div>
+            </div>
+
+            <!-- 4. Actions & Info -->
+            <div class="flex-shrink-0 flex items-center space-x-4 text-xs text-gray-400">
+                <div v-if="store.copyButtonPosition === 'footer'" class="flex gap-1">
+                     <button
+                        v-for="dtype in visibleDocTypes"
+                        :key="dtype.name"
+                        @click.stop="copyDocContent(model.id, dtype.name)"
+                        class="px-2 py-0.5 rounded border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap"
+                        :class="{'!text-green-600 !border-green-200 !bg-green-50': copyStatus[`${model.id}_${dtype.name}`] === 'success'}"
+                     >
+                        {{ copyStatus[`${model.id}_${dtype.name}`] === 'success' ? '已复制' : (copyStatus[`${model.id}_${dtype.name}`] === 'loading' ? '...' : (dtype.short_name || dtype.name)) }}
+                     </button>
+                </div>
+                <span class="hidden sm:inline-block">{{ formatDate(model.updated_at) }}</span>
+                <button @click.stop="openEditModal(model)" class="text-indigo-600 hover:text-indigo-900 font-medium whitespace-nowrap">编辑</button>
+                <button @click.stop="deleteModel(model)" class="text-red-600 hover:text-red-900 whitespace-nowrap">删除</button>
+            </div>
         </div>
       </li>
     </ul>
@@ -89,11 +73,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick } from 'vue';
+import { ref, reactive, computed } from 'vue';
 import type { MindModel } from '../types';
 import { useMainStore } from '../stores';
 import { modelApi } from '../api';
-import TagEditPopover from './TagEditPopover.vue';
 
 defineProps<{
   models: MindModel[];
@@ -102,64 +85,11 @@ defineProps<{
 const emit = defineEmits(['edit-model', 'refresh']);
 
 const store = useMainStore();
-const editingId = ref<string | null>(null);
-const editingField = ref<string | null>(null);
-const editValue = ref('');
-const editInput = ref<HTMLInputElement | null>(null);
 
-const startEdit = (model: MindModel, field: string, value: string) => {
-    editingId.value = model.id;
-    editingField.value = field;
-    editValue.value = value;
-    nextTick(() => {
-        if (editInput.value) {
-            if (Array.isArray(editInput.value)) {
-                editInput.value[0]?.focus();
-            } else {
-                editInput.value?.focus();
-            }
-        }
-    });
-};
-
-const saveEdit = async (model: MindModel) => {
-    if (!editingId.value || !editingField.value) return;
-
-    // Check if changed
-    if (editingField.value === 'name' && editValue.value === model.name) {
-        cancelEdit();
-        return;
-    }
-    if (editingField.value === 'description' && editValue.value === model.description) {
-        cancelEdit();
-        return;
-    }
-
-    try {
-        const payload: any = {
-            name: model.name,
-            description: model.description,
-            tags: model.tags
-        };
-        payload[editingField.value] = editValue.value;
-
-        await modelApi.update(model.id, payload);
-        emit('refresh');
-    } catch (error) {
-        console.error("Failed to update", error);
-    } finally {
-        cancelEdit();
-    }
-};
-
-const cancelEdit = () => {
-    editingId.value = null;
-    editingField.value = null;
-    editValue.value = '';
-};
+const visibleDocTypes = computed(() => store.docTypes.filter(t => t.show_in_copy !== 0 && t.show_in_copy !== false));
 
 const openEditModal = (model: MindModel) => {
-    emit('edit-model', model.id);
+    emit('edit-model', model);
 };
 
 const deleteModel = async (model: MindModel) => {
@@ -175,5 +105,31 @@ const deleteModel = async (model: MindModel) => {
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
   return new Date(dateStr).toLocaleDateString('zh-CN');
+};
+
+const copyStatus = reactive<Record<string, 'loading' | 'success' | 'error' | 'idle'>>({});
+
+const copyDocContent = async (modelId: string, docType: string) => {
+    const key = `${modelId}_${docType}`;
+    if (copyStatus[key] === 'loading') return;
+
+    copyStatus[key] = 'loading';
+    try {
+        const content = await modelApi.getDocContent(modelId, docType);
+        if (content) {
+            await navigator.clipboard.writeText(content);
+            copyStatus[key] = 'success';
+        } else {
+             await navigator.clipboard.writeText('');
+             copyStatus[key] = 'success';
+        }
+    } catch (e) {
+        console.error('Copy failed', e);
+        copyStatus[key] = 'error';
+    } finally {
+        setTimeout(() => {
+            copyStatus[key] = 'idle'; // Reset after 2s
+        }, 2000);
+    }
 };
 </script>

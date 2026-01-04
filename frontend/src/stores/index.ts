@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import type { MindModel, NavigationNode, TagDimension, DocType } from '../types';
 import { modelApi, navigationApi, configApi } from '../api';
 
@@ -77,6 +77,11 @@ export const useMainStore = defineStore('main', () => {
     keyword.value = '';
   };
 
+  const copyButtonPosition = ref(localStorage.getItem('copy_button_position') || 'footer');
+  watch(copyButtonPosition, (val) => {
+    localStorage.setItem('copy_button_position', val);
+  });
+
   return {
     models,
     navigationTree,
@@ -86,6 +91,7 @@ export const useMainStore = defineStore('main', () => {
     currentFilter,
     additionalFilters,
     keyword,
+    copyButtonPosition,
     fetchNavigation,
     fetchModels,
     fetchConfig,

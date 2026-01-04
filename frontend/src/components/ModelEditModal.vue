@@ -6,7 +6,7 @@
 
       <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
 
-      <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+      <div class="inline-block align-bottom bg-white rounded-lg text-left shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
         <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
           <div class="sm:flex sm:items-start">
             <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
@@ -36,10 +36,43 @@
                           <textarea
                             id="description"
                             v-model="form.description"
-                            rows="3"
+                            rows="2"
                             class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border"
                           ></textarea>
                         </div>
+                      </div>
+
+                      <!-- Sub Docs (Unified) - Only in Edit Mode -->
+                      <div v-if="isEdit" class="border-t border-gray-100 pt-4">
+                          <div class="border-b border-gray-200 mb-2">
+                              <nav class="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
+                                <button
+                                  v-for="type in store.docTypes"
+                                  :key="type.name"
+                                  type="button"
+                                  @click="currentTab = type.name"
+                                  :class="[
+                                    currentTab === type.name
+                                      ? 'border-indigo-500 text-indigo-600'
+                                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                                    'whitespace-nowrap py-2 px-1 border-b-2 font-medium text-xs'
+                                  ]"
+                                >
+                                  {{ type.name }}
+                                </button>
+                              </nav>
+                          </div>
+                          <div class="relative">
+                              <div v-if="docLoading" class="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-10">
+                                  <span class="text-xs text-gray-500">加载中...</span>
+                              </div>
+                              <textarea
+                                v-model="currentDocContent"
+                                rows="10"
+                                class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md p-2 border font-mono"
+                                placeholder="在此编辑文档内容 (Markdown)..."
+                              ></textarea>
+                          </div>
                       </div>
 
                       <!-- Tags Section -->
@@ -64,14 +97,36 @@
                                 </span>
                             </div>
 
-                            <div class="flex gap-2">
+                            <div class="flex gap-2 relative">
                               <input
                                 type="text"
                                 v-model="tagInputs[dim.name]"
                                 @keydown.enter.prevent="addTag(dim.name)"
-                                placeholder="输入标签按回车"
+                                @focus="openTagDropdown(dim.name, $event)"
+                                @blur="handleInputBlur(dim.name)"
+                                placeholder="输入新增或选择..."
                                 class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full text-xs border-gray-300 rounded-md p-1 border"
                               >
+                              <!-- Dropdown for available tags -->
+                              <div
+                                v-if="activeTagDropdown === dim.name"
+                                :class="[
+                                    'absolute left-0 w-full bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-40 overflow-y-auto',
+                                    dropdownPositions[dim.name] === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
+                                ]"
+                              >
+                                  <div
+                                    v-for="tag in getAvailableTags(dim.name)"
+                                    :key="tag"
+                                    @mousedown.prevent="selectTag(dim.name, tag)"
+                                    class="px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 cursor-pointer"
+                                  >
+                                      {{ tag }}
+                                  </div>
+                                  <div v-if="getAvailableTags(dim.name).length === 0" class="px-3 py-2 text-xs text-gray-400 italic">
+                                      无历史标签 (直接输入回车添加)
+                                  </div>
+                              </div>
                             </div>
                           </div>
                       </div>
@@ -118,13 +173,19 @@ const store = useMainStore();
 const submitting = ref(false);
 const isEdit = computed(() => !!props.modelId);
 
+// Basic Info Form
 const form = reactive({
   name: '',
   description: '',
   tags: {} as Record<string, string[]>
 });
-
 const tagInputs = reactive<Record<string, string>>({});
+
+// Sub-Docs Logic
+const currentTab = ref('');
+const currentDocContent = ref('');
+const docLoading = ref(false);
+const docSaving = ref(false);
 
 const isOpen = computed({
     get: () => props.modelValue,
@@ -143,17 +204,42 @@ const resetForm = () => {
         form.tags[dim.name] = [];
         tagInputs[dim.name] = '';
     });
+    // Default tab
+    if (store.docTypes.length > 0) {
+        currentTab.value = store.docTypes[0].name;
+    }
+    currentDocContent.value = '';
 };
+
+// Load sub-doc content when tab or modelId changes
+const loadDocContent = async () => {
+    if (!props.modelId || !currentTab.value) {
+        currentDocContent.value = '';
+        return;
+    }
+    docLoading.value = true;
+    try {
+        currentDocContent.value = await modelApi.getDocContent(props.modelId, currentTab.value);
+    } catch (e) {
+        console.error("Failed to load doc", e);
+        currentDocContent.value = ''; // or keep prev?
+    } finally {
+        docLoading.value = false;
+    }
+};
+
+watch(() => currentTab.value, () => {
+    if (isOpen.value && isEdit.value) {
+        loadDocContent();
+    }
+});
 
 watch(() => props.modelValue, async (val) => {
     if (val) {
         resetForm();
         if (isEdit.value && props.modelId) {
             try {
-                // We might already have the model in store, but fetching ensures fresh data
-                // Or just find it in store.models to be faster?
-                // Let's fetch to be safe and consistent with previous logic.
-                // Actually, if we use store.models.find, it's instant.
+                // Fetch model details
                 let model = store.models.find(m => m.id === props.modelId);
                 if (!model) {
                    model = await modelApi.get(props.modelId);
@@ -167,6 +253,10 @@ watch(() => props.modelValue, async (val) => {
                         form.tags[dim.name] = model.tags[dim.name] ? [...model.tags[dim.name]] : [];
                     });
                 }
+                
+                // Load Sub-doc for initial tab
+                await loadDocContent();
+
             } catch (e) {
                 console.error("Error loading model", e);
             }
@@ -174,12 +264,68 @@ watch(() => props.modelValue, async (val) => {
     }
 });
 
+const dropdownPositions = reactive<Record<string, 'bottom' | 'top'>>({});
+
+const activeTagDropdown = ref<string | null>(null);
+
 const addTag = (dimension: string) => {
   const val = tagInputs[dimension]?.trim();
   if (val && !form.tags[dimension].includes(val)) {
     form.tags[dimension].push(val);
     tagInputs[dimension] = '';
   }
+};
+
+const openTagDropdown = (dimension: string, event: FocusEvent) => {
+    activeTagDropdown.value = dimension;
+    // Check position
+    const target = event.target as HTMLElement;
+    if (target) {
+        const rect = target.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        // If less than 200px space below, flip up
+        dropdownPositions[dimension] = spaceBelow < 200 ? 'top' : 'bottom';
+    } else {
+        dropdownPositions[dimension] = 'bottom';
+    }
+};
+
+// Use mousedown on options to prevent blur from firing before click
+const selectTag = (dimension: string, tag: string) => {
+    if (!form.tags[dimension].includes(tag)) {
+        form.tags[dimension].push(tag);
+    }
+    tagInputs[dimension] = '';
+    activeTagDropdown.value = null;
+};
+
+const getAvailableTags = (dimension: string) => {
+    const tags = new Set<string>();
+    store.models.forEach(m => {
+        if (m.tags && m.tags[dimension]) {
+           m.tags[dimension].forEach(t => tags.add(t));
+        }
+    });
+    // Filter out already selected
+    const selected = form.tags[dimension] || [];
+    // Filter by current input? (Optional, let's keep it simple 'Show All' or 'Filter')
+    // Requirement is "Dropdowns". Usually means "Select from valid options".
+    // Let's implement filtering if input has text.
+    const input = tagInputs[dimension]?.toLowerCase() || '';
+    
+    return Array.from(tags)
+        .filter(t => !selected.includes(t)) // Don't show already selected
+        .filter(t => t.toLowerCase().includes(input)) // Filter by input
+        .sort();
+};
+
+const handleInputBlur = (dimension: string) => {
+    // Small delay to allow click to register
+    setTimeout(() => {
+        if (activeTagDropdown.value === dimension) {
+            activeTagDropdown.value = null;
+        }
+    }, 200);
 };
 
 const removeTag = (dimension: string, index: number) => {
@@ -206,8 +352,25 @@ const saveModel = async () => {
 
     if (isEdit.value && props.modelId) {
       await modelApi.update(props.modelId, payload);
+      // Also save current doc content if changed? 
+      // Requirement says "Unified Modal". 
+      // Usually users expect "Save" to save EVERYTHING.
+      // But doc content is large. 
+      // Let's autosave doc content when switching tabs? Or explicit save?
+      // User asked for "Unified Edit Modal".
+      // Let's simple approach: When clicking "Save", we save Basic Info AND Current Tab Content.
+      // (And maybe other tabs if we tracked dirty state, but simpler is just current tab).
+      
+      if (currentTab.value) {
+          await modelApi.saveDocContent(props.modelId, currentTab.value, currentDocContent.value);
+      }
+
     } else {
-      await modelApi.create(payload);
+      const newModel = await modelApi.create(payload);
+      // If new model, we might want to save doc content too if user entered any?
+      // But UI for Sub-docs might be hidden for "New Model" to simplify? 
+      // "Sub-docs only available after creating model" is a common pattern.
+      // Let's stick to that for now unless requested otherwise.
     }
 
     // Refresh store data
