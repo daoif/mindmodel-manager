@@ -56,11 +56,11 @@ if (-not $SkipBuildFrontend) {
         Start-Sleep -Seconds 1
     }
     
-    # 删除根目录的旧 MindModel.exe（避免 Launcher 释放时跳过）
-    $OldExe = Join-Path $ProjectRoot "MindModel.exe"
-    if (Test-Path $OldExe) {
-        Write-Host "Removing old MindModel.exe..."
-        Remove-Item -Force $OldExe
+    # 删除旧的构建产物，强制重新生成
+    $TargetExe = Join-Path $ProjectRoot "frontend\src-tauri\target\release\mindmodel.exe"
+    if (Test-Path $TargetExe) {
+        Write-Host "Removing old target executable to force rebuild..."
+        Remove-Item -Force $TargetExe
     }
     
     Push-Location (Join-Path $ProjectRoot "frontend")

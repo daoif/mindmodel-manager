@@ -1,5 +1,5 @@
 [package]
-name = "mind_model_manager"
+name = "mindmodel"
 version = "0.1.1"
 description = "A Tauri App"
 authors = ["you"]

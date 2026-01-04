@@ -32,13 +32,9 @@ fn main() -> io::Result<()> {
     let backend_dir = exe_dir.join("backend");
     let node_exe = exe_dir.join("node").join("node.exe");
     
-    if !mindmodel_exe.exists() || !backend_dir.exists() || !node_exe.exists() {
-        println!("\n[1/3] Extracting resources (first run)...");
-        extract_resources(&exe_dir)?;
-        println!("Resources extracted successfully!");
-    } else {
-        println!("\n[1/3] Resources already exist, skipping extraction.");
-    }
+    // 总是尝试释放资源 (以便更新)，除非是很大的静态依赖 (node) 会在 extract_resources 内部处理跳过逻辑
+    println!("\n[1/3] Verifying and updating resources...");
+    extract_resources(&exe_dir)?;
     
     // 启动后端
     println!("\n[2/3] Starting backend...");
@@ -74,10 +70,17 @@ fn extract_resources(target_dir: &Path) -> io::Result<()> {
         
         let outpath = target_dir.join(file.name());
         
-        // 跳过已存在的文件/目录
-        if outpath.exists() {
-            continue;
+        // 策略:
+        // 1. 如果是 node 目录下的文件，且已存在，跳过 (节省启动时间)
+        // 2. 其他文件 (MindModel.exe, backend代码)，总是覆盖
+        
+        if file.name().starts_with("node/") || file.name().contains("/node/") || (file.name() == "node.exe") {
+             if outpath.exists() {
+                 continue;
+             }
         }
+        
+        // 对于非目录文件，如果已存在，则覆盖 (File::create 会截断)
         
         if file.is_dir() {
             fs::create_dir_all(&outpath)?;
