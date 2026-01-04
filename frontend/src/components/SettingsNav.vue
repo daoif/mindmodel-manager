@@ -21,5 +21,12 @@
     >
       桌面设置
     </router-link>
+    <router-link 
+      to="/settings/about" 
+      class="text-sm font-medium transition-colors duration-200"
+      :class="[$route.path === '/settings/about' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700']"
+    >
+      关于
+    </router-link>
   </nav>
 </template>
