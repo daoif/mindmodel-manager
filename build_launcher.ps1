@@ -56,12 +56,7 @@ if (-not $SkipBuildFrontend) {
         Start-Sleep -Seconds 1
     }
     
-    # 删除旧的构建产物，强制重新生成
-    $TargetExe = Join-Path $ProjectRoot "frontend\src-tauri\target\release\mindmodel.exe"
-    if (Test-Path $TargetExe) {
-        Write-Host "Removing old target executable to force rebuild..."
-        Remove-Item -Force $TargetExe
-    }
+
     
     Push-Location (Join-Path $ProjectRoot "frontend")
     cmd /c "npx tauri build"
