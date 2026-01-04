@@ -9,6 +9,8 @@ export const useMainStore = defineStore('main', () => {
   const dimensions = ref<TagDimension[]>([]);
   const docTypes = ref<DocType[]>([]);
   const loading = ref(false);
+  const serverConnected = ref(true);
+  const serverError = ref<string | null>(null);
 
   // 当前选中的导航节点过滤规则 (基础筛选)
   const currentFilter = ref<{ dimension: string; value: string }[] | null>(null);
@@ -23,6 +25,7 @@ export const useMainStore = defineStore('main', () => {
       navigationTree.value = await navigationApi.getTree();
     } catch (error) {
       console.error('获取导航失败', error);
+      throw error;
     }
   };
 
@@ -32,6 +35,7 @@ export const useMainStore = defineStore('main', () => {
       models.value = await modelApi.list();
     } catch (error) {
       console.error('获取模型列表失败', error);
+      throw error;
     } finally {
       loading.value = false;
     }
@@ -43,11 +47,20 @@ export const useMainStore = defineStore('main', () => {
       docTypes.value = await configApi.getDocTypes();
     } catch (error) {
       console.error('获取配置失败', error);
+      throw error;
     }
   };
 
   const init = async () => {
-    await Promise.all([fetchConfig(), fetchNavigation(), fetchModels()]);
+    try {
+      await Promise.all([fetchConfig(), fetchNavigation(), fetchModels()]);
+      serverConnected.value = true;
+      serverError.value = null;
+    } catch (error: any) {
+      serverConnected.value = false;
+      serverError.value = error?.message || '无法连接到服务器';
+      console.error('服务器连接失败', error);
+    }
   };
 
   const setFilter = (rule: { dimension: string; value: string }[] | null) => {
@@ -92,6 +105,8 @@ export const useMainStore = defineStore('main', () => {
     additionalFilters,
     keyword,
     copyButtonPosition,
+    serverConnected,
+    serverError,
     fetchNavigation,
     fetchModels,
     fetchConfig,

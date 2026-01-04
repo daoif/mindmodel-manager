@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import HomeView from '../views/HomeView.vue';
 import SettingsDimensions from '../views/SettingsDimensions.vue';
 import SettingsDocTypes from '../views/SettingsDocTypes.vue';
+import SettingsDesktop from '../views/SettingsDesktop.vue';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -18,6 +19,11 @@ const routes: RouteRecordRaw[] = [
     path: '/settings/doc-types',
     name: 'SettingsDocTypes',
     component: SettingsDocTypes
+  },
+  {
+    path: '/settings/desktop',
+    name: 'SettingsDesktop',
+    component: SettingsDesktop
   }
 ];
 

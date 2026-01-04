@@ -3,7 +3,7 @@ import type { MindModel, Document, NavigationNode, TagDimension, DocType } from 
 
 // 配置 baseURL，假设后端在 3000 端口
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api'
+  baseURL: 'http://localhost:31888/api'
 });
 
 export const modelApi = {

@@ -5,7 +5,9 @@ import fs from 'fs-extra';
 import path from 'path';
 
 const router = Router();
-const DOCS_DIR = path.resolve(process.cwd(), '../data/docs');
+import { DATA_DIR } from '../config';
+
+const DOCS_DIR = path.join(DATA_DIR, 'docs');
 
 // 简单的路径验证，防止目录遍历
 const isValidFilename = (filename: string) => {
@@ -152,59 +154,59 @@ router.put('/:id', async (req, res) => {
 
 // Update model tags (partial update)
 router.put('/:id/tags', async (req, res) => {
-    try {
-        const { tags } = req.body;
-        const { id } = req.params;
-        const now = new Date().toISOString();
-        const db = await getDb();
+  try {
+    const { tags } = req.body;
+    const { id } = req.params;
+    const now = new Date().toISOString();
+    const db = await getDb();
 
-        const existing = await db.get('SELECT * FROM models WHERE id = ?', [id]);
-        if (!existing) {
-            return res.status(404).json({ error: '模型未找到' });
-        }
-
-        // We need to merge with existing tags, OR specific dimensions replace specific dimensions?
-        // Requirement for Inline Edit: "Real-time save... Dropdown...".
-        // If I edit "Scene" tags, I send `{ Scene: [...] }`.
-        // If I want to keep "Phase" tags, I should not delete them.
-        // So this endpoint should be a PATCH or handle merging.
-        // Let's implement MERGE strategy:
-        // For each dimension in `tags`, replace the tags for that dimension.
-        // Leave other dimensions alone.
-
-        if (tags) {
-            for (const [dimension, values] of Object.entries(tags)) {
-                // Delete existing tags for THIS dimension only
-                await db.run('DELETE FROM model_tags WHERE model_id = ? AND dimension = ?', [id, dimension]);
-
-                if (Array.isArray(values)) {
-                    for (const value of values) {
-                        await db.run(
-                            'INSERT INTO model_tags (model_id, dimension, value) VALUES (?, ?, ?)',
-                            [id, dimension, value]
-                        );
-                    }
-                }
-            }
-        }
-
-        await db.run('UPDATE models SET updated_at = ? WHERE id = ?', [now, id]);
-
-        // Return full model to update frontend?
-        // Let's refetch tags to be sure.
-        const allTags = await db.all('SELECT dimension, value FROM model_tags WHERE model_id = ?', [id]);
-        const newTags: Record<string, string[]> = {};
-        allTags.forEach((tag: any) => {
-            if (!newTags[tag.dimension]) {
-                newTags[tag.dimension] = [];
-            }
-            newTags[tag.dimension].push(tag.value);
-        });
-
-        res.json({ ...existing, tags: newTags, updated_at: now });
-    } catch (error) {
-        res.status(500).json({ error: (error as Error).message });
+    const existing = await db.get('SELECT * FROM models WHERE id = ?', [id]);
+    if (!existing) {
+      return res.status(404).json({ error: '模型未找到' });
     }
+
+    // We need to merge with existing tags, OR specific dimensions replace specific dimensions?
+    // Requirement for Inline Edit: "Real-time save... Dropdown...".
+    // If I edit "Scene" tags, I send `{ Scene: [...] }`.
+    // If I want to keep "Phase" tags, I should not delete them.
+    // So this endpoint should be a PATCH or handle merging.
+    // Let's implement MERGE strategy:
+    // For each dimension in `tags`, replace the tags for that dimension.
+    // Leave other dimensions alone.
+
+    if (tags) {
+      for (const [dimension, values] of Object.entries(tags)) {
+        // Delete existing tags for THIS dimension only
+        await db.run('DELETE FROM model_tags WHERE model_id = ? AND dimension = ?', [id, dimension]);
+
+        if (Array.isArray(values)) {
+          for (const value of values) {
+            await db.run(
+              'INSERT INTO model_tags (model_id, dimension, value) VALUES (?, ?, ?)',
+              [id, dimension, value]
+            );
+          }
+        }
+      }
+    }
+
+    await db.run('UPDATE models SET updated_at = ? WHERE id = ?', [now, id]);
+
+    // Return full model to update frontend?
+    // Let's refetch tags to be sure.
+    const allTags = await db.all('SELECT dimension, value FROM model_tags WHERE model_id = ?', [id]);
+    const newTags: Record<string, string[]> = {};
+    allTags.forEach((tag: any) => {
+      if (!newTags[tag.dimension]) {
+        newTags[tag.dimension] = [];
+      }
+      newTags[tag.dimension].push(tag.value);
+    });
+
+    res.json({ ...existing, tags: newTags, updated_at: now });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
 });
 
 // 删除模型

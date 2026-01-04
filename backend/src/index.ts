@@ -8,7 +8,7 @@ import configRoutes from './routes/config';
 import navigationRoutes from './routes/navigation';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 31888;
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -20,6 +20,11 @@ app.use(bodyParser.json());
 app.use('/api/models', modelRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/navigation', navigationRoutes);
+
+// 健康检查端点
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', app: 'mindmodel-backend', version: '1.0.0' });
+});
 
 // 初始化数据库并启动服务器
 initDb().then(() => {

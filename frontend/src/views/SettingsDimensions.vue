@@ -1,17 +1,13 @@
 <template>
   <div class="bg-white shadow rounded-lg p-6">
-    <div class="mb-6 border-b border-gray-200 pb-4 flex justify-between items-center">
-      <div>
-         <h1 class="text-2xl font-bold text-gray-900">维度管理</h1>
-         <div class="mt-2 space-x-2">
-             <router-link to="/settings/dimensions" class="text-sm font-medium text-indigo-600">标签维度</router-link>
-             <span class="text-gray-300">|</span>
-             <router-link to="/settings/doc-types" class="text-sm font-medium text-gray-500 hover:text-gray-900">文档类型</router-link>
-         </div>
-      </div>
-      <button @click="openAddModal" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none">
-        添加维度
-      </button>
+    <div class="mb-6">
+       <SettingsNav />
+       <div class="flex justify-between items-center">
+          <h1 class="text-2xl font-bold text-gray-900">维度管理</h1>
+          <button @click="openAddModal" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none">
+            添加维度
+          </button>
+       </div>
     </div>
 
     <div class="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-4">
@@ -108,6 +104,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue';
 import { useMainStore } from '../stores';
+import SettingsNav from '../components/SettingsNav.vue';
 import type { TagDimension } from '../types';
 import { configApi } from '../api';
 

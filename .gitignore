@@ -30,3 +30,18 @@ data/
 # Excluded Docs
 in_docs/
 初始材料/
+
+# Tauri
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
+
+# Launcher
+launcher/target/
+launcher/resources.zip
+_launcher_temp/
+node/
+
+# Build outputs
+**/*.exe
+**/*.msi
+**/*.nsi

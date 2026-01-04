@@ -1,0 +1,9 @@
+[package]
+name = "mindmodel_launcher"
+version = "0.1.0"
+edition = "2021"
+description = "MindModel Launcher - 释放并启动 MindModel 应用"
+
+[dependencies]
+include_dir = { version = "0.7", features = ["glob"] }
+zip = "2"

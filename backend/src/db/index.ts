@@ -3,7 +3,9 @@ import { open, Database } from 'sqlite';
 import path from 'path';
 import fs from 'fs-extra';
 
-const DB_PATH = path.join(__dirname, '../../../data/mindmodel.db');
+import { DATA_DIR } from '../config';
+
+const DB_PATH = path.join(DATA_DIR, 'mindmodel.db');
 
 let db: Database | null = null;
 

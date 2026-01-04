@@ -56,7 +56,7 @@
          </div>
 
           <button
-            v-if="!store.currentFilter"
+            v-if="!store.currentFilter || store.currentFilter.length === 0"
             @click="openNewModelModal"
             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
@@ -145,11 +145,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, reactive } from 'vue';
+import { ref, computed, watch, reactive } from 'vue';
 import { useMainStore } from '../stores';
 import FilterBar from '../components/FilterBar.vue';
 import ModelEditModal from '../components/ModelEditModal.vue';
 import ModelList from '../components/ModelList.vue';
+import type { MindModel } from '../types';
+import { modelApi } from '../api';
 
 const store = useMainStore();
 const showEditModal = ref(false);
@@ -316,11 +318,6 @@ const filteredModels = computed(() => {
       return 0;
   });
 });
-
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('zh-CN');
-};
 
 const getTagColor = (dimName: string) => {
     const dim = store.dimensions.find(d => d.name === dimName);

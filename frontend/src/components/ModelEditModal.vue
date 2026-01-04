@@ -185,7 +185,7 @@ const tagInputs = reactive<Record<string, string>>({});
 const currentTab = ref('');
 const currentDocContent = ref('');
 const docLoading = ref(false);
-const docSaving = ref(false);
+// const docSaving = ref(false);
 
 const isOpen = computed({
     get: () => props.modelValue,
@@ -366,7 +366,7 @@ const saveModel = async () => {
       }
 
     } else {
-      const newModel = await modelApi.create(payload);
+      await modelApi.create(payload);
       // If new model, we might want to save doc content too if user entered any?
       // But UI for Sub-docs might be hidden for "New Model" to simplify? 
       // "Sub-docs only available after creating model" is a common pattern.

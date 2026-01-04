@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue';
+import { reactive, computed } from 'vue';
 import type { MindModel } from '../types';
 import { useMainStore } from '../stores';
 import { modelApi } from '../api';
