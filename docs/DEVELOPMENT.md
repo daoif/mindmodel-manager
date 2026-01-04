@@ -18,7 +18,8 @@ E:\code\mindmodel\
 ├── launcher/          # Rust 启动器代码 (用于分发)
 ├── node/              # (构建后) 存放 Node.js 可执行文件
 ├── data/              # (运行时) 存放数据库和用户数据
-└── process_build.ps1  #构建脚本
+├── build_launcher.ps1 # 完整发布构建脚本 (Full Release)
+└── process_build.ps1  # 快速开发构建脚本 (Fast Dev)
 ```
 
 ## 3. 开发流程
