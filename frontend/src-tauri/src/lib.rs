@@ -23,8 +23,8 @@ pub fn run() {
       app.handle().plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
       app.handle().plugin(tauri_plugin_opener::init())?;
       
-      let quit_i = tauri::menu::MenuItem::with_id(app.handle(), "quit", "Quit", true, None::<&str>)?;
-      let show_i = tauri::menu::MenuItem::with_id(app.handle(), "show", "Show", true, None::<&str>)?;
+      let quit_i = tauri::menu::MenuItem::with_id(app.handle(), "quit", "退出", true, None::<&str>)?;
+      let show_i = tauri::menu::MenuItem::with_id(app.handle(), "show", "显示主界面", true, None::<&str>)?;
       let menu = tauri::menu::Menu::with_items(app.handle(), &[&show_i, &quit_i])?;
 
       let _tray = tauri::tray::TrayIconBuilder::new()
