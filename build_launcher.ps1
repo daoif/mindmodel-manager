@@ -142,6 +142,9 @@ Copy-Item $FinalExe $OutputExe
 
 # 清理临时目录（保留 node 缓存）
 Write-Host "`nCleaning up..."
+if (Test-Path $ResourcesZip) {
+    Remove-Item -Force $ResourcesZip
+}
 Remove-Item -Recurse -Force $TempDir
 
 Write-Host "`n===========================================" -ForegroundColor Green
