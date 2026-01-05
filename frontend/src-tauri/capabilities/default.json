@@ -7,6 +7,7 @@
   ],
   "permissions": [
     "core:default",
+    "core:path:default",
     {
       "identifier": "shell:allow-spawn",
       "allow": [

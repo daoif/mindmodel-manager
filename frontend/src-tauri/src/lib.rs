@@ -19,7 +19,7 @@ pub fn run() {
         )?;
       }
       app.handle().plugin(tauri_plugin_shell::init())?;
-      app.handle().plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, Some(vec!["--flag1", "--flag2"])))?;
+      app.handle().plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))?;
       app.handle().plugin(tauri_plugin_global_shortcut::Builder::new().build())?;
       app.handle().plugin(tauri_plugin_opener::init())?;
       

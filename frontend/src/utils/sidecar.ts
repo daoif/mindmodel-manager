@@ -8,9 +8,13 @@
  * 路径策略：
  * - 开发模式：使用系统 node，后端在 ../backend
  * - 生产模式：使用同级 node/node.exe，后端在同级 backend/
+ * 
+ * 注意：开机自启动时，工作目录可能不是 exe 所在目录，
+ * 因此需要使用 resourceDir() 获取绝对路径。
  */
 
 import { Command } from '@tauri-apps/plugin-shell';
+import { resourceDir, join } from '@tauri-apps/api/path';
 
 const BACKEND_URL = 'http://localhost:31888';
 const HEALTH_ENDPOINT = `${BACKEND_URL}/health`;
@@ -40,19 +44,33 @@ async function checkBackendHealth(): Promise<boolean> {
  * 启动后端 Node.js 进程
  * 
  * 策略：
- * 1. 先尝试使用同级 node/node.exe（生产模式/Launcher释放后）
- * 2. 如果不存在，使用系统 node（开发模式）
+ * 1. 获取 exe 所在目录的绝对路径（解决开机自启动时工作目录不正确的问题）
+ * 2. 先尝试使用同级 node/node.exe（生产模式/Launcher释放后）
+ * 3. 如果不存在，使用系统 node（开发模式）
  */
 async function spawnBackend(): Promise<void> {
     try {
-        // 生产模式：检测是否有同级 node（由 Launcher 释放）
-        // 开发模式：直接使用系统 node
-        // 
-        // Tauri shell 的工作目录是 exe 所在目录
-        // 所以 backend/ 和 node/ 都在同级或上级
+        // 获取 exe 所在目录（resourceDir 在生产环境返回 exe 所在目录）
+        // 这解决了开机自启动时工作目录可能是 C:\Windows\System32 的问题
+        let baseDir: string;
+        try {
+            baseDir = await resourceDir();
+            console.log('[Backend] Resource directory:', baseDir);
+        } catch (e) {
+            // 开发模式下 resourceDir 可能失败，使用当前目录
+            console.log('[Backend] resourceDir failed, using relative path (dev mode):', e);
+            baseDir = '.';
+        }
 
-        // 尝试启动 - Tauri 的 cwd 会基于 exe 位置
-        const command = Command.create('node', ['backend/dist/index.js']);
+        // 构建后端脚本的路径
+        const backendScript = await join(baseDir, 'backend', 'dist', 'index.js');
+        console.log('[Backend] Backend script path:', backendScript);
+
+        // 使用 cwd 选项显式设置工作目录
+        // 这是修复开机自启动问题的关键
+        const command = Command.create('node', [backendScript], {
+            cwd: baseDir
+        });
 
         const child = await command.spawn();
         console.log('[Backend] Node.js backend spawned with PID:', child.pid);
