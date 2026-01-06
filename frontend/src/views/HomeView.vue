@@ -3,30 +3,29 @@
     <FilterBar />
 
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold text-gray-800 flex items-center">
-        {{ currentFilterDescription }}
-        <span class="text-sm font-normal text-gray-500 ml-2">
-           {{ filteredModels.length }}/{{ baseModelsCount }} 个模型
-        </span>
-      </h2>
-      <div class="flex items-center space-x-2">
-         <!-- Batch Select Toggle -->
-         <button
-            @click="toggleBatchMode"
-            :class="[
-                'px-3 py-1.5 text-sm font-medium rounded-md border shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors',
-                isSelectionMode 
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100' 
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            ]"
-         >
-            {{ isSelectionMode ? '退出多选' : '批量选择' }}
-         </button>
+      <div class="flex items-center space-x-4">
+          <h2 class="text-2xl font-bold text-gray-800 flex items-center">
+            {{ currentFilterDescription }}
+            <span class="text-sm font-normal text-gray-500 ml-2">
+               {{ filteredModels.length }}/{{ baseModelsCount }} 个模型
+            </span>
+          </h2>
+          
+           <!-- Batch Select Toggle -->
+           <button
+              @click="toggleBatchMode"
+              :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-md border shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors',
+                  isSelectionMode 
+                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100' 
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              ]"
+           >
+              {{ isSelectionMode ? '退出多选' : '批量选择' }}
+           </button>
 
-         <!-- Batch Actions (Visible only in selection mode) -->
-         <template v-if="isSelectionMode">
-             <div class="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
-                 <!-- Select All Checkbox -->
+           <!-- Select All Control (Visible only in selection mode) -->
+           <div v-if="isSelectionMode" class="flex items-center space-x-3 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
                 <label class="inline-flex items-center space-x-2 text-sm text-gray-700 cursor-pointer select-none">
                     <input 
                         type="checkbox" 
@@ -37,26 +36,35 @@
                     >
                     <span>全选</span>
                 </label>
-
-                <div class="h-4 w-px bg-gray-300 mx-2"></div>
-
+                <div class="h-4 w-px bg-gray-300"></div>
                 <span class="text-sm text-gray-500">已选 {{ selectedModelIds.size }} 项</span>
+           </div>
+      </div>
 
-                <button
-                    v-if="selectedModelIds.size > 0"
-                    @click="batchEditTags"
-                    class="ml-2 text-sm text-indigo-600 hover:text-indigo-900 font-medium"
-                >
-                    批量修改标签
-                </button>
-                <button
-                    v-if="selectedModelIds.size > 0"
-                    @click="batchDelete"
-                    class="ml-2 text-sm text-red-600 hover:text-red-900 font-medium"
-                >
-                    批量删除
-                </button>
-             </div>
+      <div class="flex items-center space-x-2">
+         <!-- Batch Actions (Visible in selection mode) -->
+         <template v-if="isSelectionMode">
+            <button
+                @click="batchEditTags"
+                :disabled="selectedModelIds.size === 0"
+                :class="[
+                    'px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors',
+                    selectedModelIds.size === 0 ? 'bg-indigo-300 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'
+                ]"
+            >
+                批量修改标签
+            </button>
+            <button
+                @click="batchDelete"
+                :disabled="selectedModelIds.size === 0"
+                :class="[
+                    'px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors',
+                    selectedModelIds.size === 0 ? 'bg-red-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'
+                ]"
+            >
+                批量删除
+            </button>
+            <div class="h-6 w-px bg-gray-300 mx-2"></div>
          </template>
 
          <!-- Sort Dropdown -->
