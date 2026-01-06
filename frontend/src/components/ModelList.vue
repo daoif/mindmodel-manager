@@ -5,9 +5,19 @@
         v-for="model in models" 
         :key="model.id" 
         class="hover:bg-gray-50 transition-colors cursor-pointer"
-        @click="openEditModal(model)"
+        @click="handleClick(model)"
       >
         <div class="px-4 h-16 flex items-center">
+            <!-- 0. Checkbox -->
+            <div v-if="isSelectionMode" class="mr-4 flex-shrink-0" @click.stop>
+                 <input 
+                    type="checkbox" 
+                    :checked="selectedIds?.has(model.id)"
+                    @change="toggleSelection(model.id)"
+                    class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                >
+            </div>
+
             <!-- 1. Name -->
             <div class="w-48 flex-shrink-0 mr-4">
                 <p class="text-sm font-medium text-indigo-600 truncate" :title="model.name">
@@ -78,11 +88,13 @@ import type { MindModel } from '../types';
 import { useMainStore } from '../stores';
 import { modelApi } from '../api';
 
-defineProps<{
+const props = defineProps<{
   models: MindModel[];
+  isSelectionMode?: boolean;
+  selectedIds?: Set<string>;
 }>();
 
-const emit = defineEmits(['edit-model', 'refresh']);
+const emit = defineEmits(['edit-model', 'refresh', 'toggle-selection']);
 
 const store = useMainStore();
 
@@ -90,6 +102,18 @@ const visibleDocTypes = computed(() => store.docTypes.filter(t => t.show_in_copy
 
 const openEditModal = (model: MindModel) => {
     emit('edit-model', model);
+};
+
+const handleClick = (model: MindModel) => {
+    if (props.isSelectionMode) {
+        emit('toggle-selection', model.id);
+    } else {
+        openEditModal(model);
+    }
+};
+
+const toggleSelection = (id: string) => {
+    emit('toggle-selection', id);
 };
 
 const deleteModel = async (model: MindModel) => {

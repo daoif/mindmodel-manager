@@ -11,13 +11,13 @@
           <div class="sm:flex sm:items-start">
             <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
               <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-                {{ isEdit ? '编辑模型' : '新建模型' }}
+                {{ isBatch ? `批量编辑 ${selectedIds?.length || 0} 个模型` : (isEdit ? '编辑模型' : '新建模型') }}
               </h3>
 
               <div class="mt-4">
                   <form @submit.prevent="saveModel" class="space-y-6">
                       <!-- Basic Info -->
-                      <div>
+                      <div v-if="!isBatch">
                         <label for="name" class="block text-sm font-medium text-gray-700">模型名称</label>
                         <div class="mt-1">
                           <input
@@ -30,7 +30,7 @@
                         </div>
                       </div>
 
-                      <div>
+                      <div v-if="!isBatch">
                         <label for="description" class="block text-sm font-medium text-gray-700">描述</label>
                         <div class="mt-1">
                           <textarea
@@ -43,7 +43,7 @@
                       </div>
 
                       <!-- Sub Docs (Unified) - Only in Edit Mode -->
-                      <div v-if="isEdit" class="border-t border-gray-100 pt-4">
+                      <div v-if="isEdit && !isBatch" class="border-t border-gray-100 pt-4">
                           <div class="border-b border-gray-200 mb-2">
                               <nav class="-mb-px flex space-x-4 overflow-x-auto" aria-label="Tabs">
                                 <button
@@ -165,6 +165,8 @@ import { modelApi } from '../api';
 const props = defineProps<{
   modelValue: boolean;
   modelId?: string | null; // If present, edit mode
+  mode?: 'single' | 'batch';
+  selectedIds?: string[];
 }>();
 
 const emit = defineEmits(['update:modelValue', 'saved']);
@@ -172,6 +174,7 @@ const emit = defineEmits(['update:modelValue', 'saved']);
 const store = useMainStore();
 const submitting = ref(false);
 const isEdit = computed(() => !!props.modelId);
+const isBatch = computed(() => props.mode === 'batch');
 
 // Basic Info Form
 const form = reactive({
@@ -181,11 +184,13 @@ const form = reactive({
 });
 const tagInputs = reactive<Record<string, string>>({});
 
+// Keep track of original common tags for diffing in batch mode
+const originalCommonTags = reactive<Record<string, string[]>>({});
+
 // Sub-Docs Logic
 const currentTab = ref('');
 const currentDocContent = ref('');
 const docLoading = ref(false);
-// const docSaving = ref(false);
 
 const isOpen = computed({
     get: () => props.modelValue,
@@ -202,6 +207,7 @@ const resetForm = () => {
     form.tags = {};
     store.dimensions.forEach(dim => {
         form.tags[dim.name] = [];
+        originalCommonTags[dim.name] = []; // Reset original
         tagInputs[dim.name] = '';
     });
     // Default tab
@@ -211,9 +217,9 @@ const resetForm = () => {
     currentDocContent.value = '';
 };
 
-// Load sub-doc content when tab or modelId changes
+// ... (loadDocContent mostly same, but skip in batch)
 const loadDocContent = async () => {
-    if (!props.modelId || !currentTab.value) {
+    if (isBatch.value || !props.modelId || !currentTab.value) {
         currentDocContent.value = '';
         return;
     }
@@ -222,14 +228,14 @@ const loadDocContent = async () => {
         currentDocContent.value = await modelApi.getDocContent(props.modelId, currentTab.value);
     } catch (e) {
         console.error("Failed to load doc", e);
-        currentDocContent.value = ''; // or keep prev?
+        currentDocContent.value = '';
     } finally {
         docLoading.value = false;
     }
 };
 
 watch(() => currentTab.value, () => {
-    if (isOpen.value && isEdit.value) {
+    if (isOpen.value && isEdit.value && !isBatch.value) {
         loadDocContent();
     }
 });
@@ -237,9 +243,29 @@ watch(() => currentTab.value, () => {
 watch(() => props.modelValue, async (val) => {
     if (val) {
         resetForm();
-        if (isEdit.value && props.modelId) {
+        
+        if (isBatch.value && props.selectedIds && props.selectedIds.length > 0) {
+             // Load Batch Data: Calculate common tags
+             const targetModels = store.models.filter(m => props.selectedIds?.includes(m.id));
+             
+             if (targetModels.length > 0) {
+                 store.dimensions.forEach(dim => {
+                     // Get tags for this dimension from first model
+                     let common = targetModels[0].tags[dim.name] || [];
+                     
+                     // Intersect with all other models
+                     for (let i = 1; i < targetModels.length; i++) {
+                         const otherTags = targetModels[i].tags[dim.name] || [];
+                         common = common.filter(t => otherTags.includes(t));
+                     }
+                     
+                     form.tags[dim.name] = [...common];
+                     originalCommonTags[dim.name] = [...common]; // Snapshot
+                 });
+             }
+        } 
+        else if (isEdit.value && props.modelId) {
             try {
-                // Fetch model details
                 let model = store.models.find(m => m.id === props.modelId);
                 if (!model) {
                    model = await modelApi.get(props.modelId);
@@ -248,13 +274,11 @@ watch(() => props.modelValue, async (val) => {
                 if (model) {
                     form.name = model.name;
                     form.description = model.description;
-                    // Deep copy tags
                     store.dimensions.forEach(dim => {
                         form.tags[dim.name] = model.tags[dim.name] ? [...model.tags[dim.name]] : [];
                     });
                 }
                 
-                // Load Sub-doc for initial tab
                 await loadDocContent();
 
             } catch (e) {
@@ -265,7 +289,6 @@ watch(() => props.modelValue, async (val) => {
 });
 
 const dropdownPositions = reactive<Record<string, 'bottom' | 'top'>>({});
-
 const activeTagDropdown = ref<string | null>(null);
 
 const addTag = (dimension: string) => {
@@ -278,19 +301,16 @@ const addTag = (dimension: string) => {
 
 const openTagDropdown = (dimension: string, event: FocusEvent) => {
     activeTagDropdown.value = dimension;
-    // Check position
     const target = event.target as HTMLElement;
     if (target) {
         const rect = target.getBoundingClientRect();
         const spaceBelow = window.innerHeight - rect.bottom;
-        // If less than 200px space below, flip up
         dropdownPositions[dimension] = spaceBelow < 200 ? 'top' : 'bottom';
     } else {
         dropdownPositions[dimension] = 'bottom';
     }
 };
 
-// Use mousedown on options to prevent blur from firing before click
 const selectTag = (dimension: string, tag: string) => {
     if (!form.tags[dimension].includes(tag)) {
         form.tags[dimension].push(tag);
@@ -306,21 +326,16 @@ const getAvailableTags = (dimension: string) => {
            m.tags[dimension].forEach(t => tags.add(t));
         }
     });
-    // Filter out already selected
     const selected = form.tags[dimension] || [];
-    // Filter by current input? (Optional, let's keep it simple 'Show All' or 'Filter')
-    // Requirement is "Dropdowns". Usually means "Select from valid options".
-    // Let's implement filtering if input has text.
     const input = tagInputs[dimension]?.toLowerCase() || '';
     
     return Array.from(tags)
-        .filter(t => !selected.includes(t)) // Don't show already selected
-        .filter(t => t.toLowerCase().includes(input)) // Filter by input
+        .filter(t => !selected.includes(t))
+        .filter(t => t.toLowerCase().includes(input))
         .sort();
 };
 
 const handleInputBlur = (dimension: string) => {
-    // Small delay to allow click to register
     setTimeout(() => {
         if (activeTagDropdown.value === dimension) {
             activeTagDropdown.value = null;
@@ -333,44 +348,56 @@ const removeTag = (dimension: string, index: number) => {
 };
 
 const saveModel = async () => {
-  if (!form.name) return;
+  if (!isBatch.value && !form.name) return; // Name required for single edit
 
   submitting.value = true;
   try {
-    const cleanTags: Record<string, string[]> = {};
-    for (const [key, val] of Object.entries(form.tags)) {
-      if (val.length > 0) {
-        cleanTags[key] = val;
-      }
-    }
+    if (isBatch.value && props.selectedIds) {
+        // Calculation of changes
+        const tagsToAdd: Record<string, string[]> = {};
+        const tagsToRemove: Record<string, string[]> = {};
 
-    const payload = {
-      name: form.name,
-      description: form.description,
-      tags: cleanTags
-    };
+        store.dimensions.forEach(dim => {
+            const current = new Set(form.tags[dim.name] || []);
+            const original = new Set(originalCommonTags[dim.name] || []);
 
-    if (isEdit.value && props.modelId) {
-      await modelApi.update(props.modelId, payload);
-      // Also save current doc content if changed? 
-      // Requirement says "Unified Modal". 
-      // Usually users expect "Save" to save EVERYTHING.
-      // But doc content is large. 
-      // Let's autosave doc content when switching tabs? Or explicit save?
-      // User asked for "Unified Edit Modal".
-      // Let's simple approach: When clicking "Save", we save Basic Info AND Current Tab Content.
-      // (And maybe other tabs if we tracked dirty state, but simpler is just current tab).
-      
-      if (currentTab.value) {
-          await modelApi.saveDocContent(props.modelId, currentTab.value, currentDocContent.value);
-      }
+            // To Add: In current but not available in original
+            // (Wait, logic check: 
+            //  Common = [A, B]. User adds C. Current = [A, B, C]. ToAdd = [C]. Correct.
+            //  Common = [A, B]. User removes B. Current = [A]. ToRemove = [B]. Correct.)
+            
+            const toAdd = [...current].filter(t => !original.has(t));
+            const toRemove = [...original].filter(t => !current.has(t));
+
+            if (toAdd.length > 0) tagsToAdd[dim.name] = toAdd;
+            if (toRemove.length > 0) tagsToRemove[dim.name] = toRemove;
+        });
+
+        await modelApi.batchUpdateTags(props.selectedIds, tagsToAdd, tagsToRemove);
 
     } else {
-      await modelApi.create(payload);
-      // If new model, we might want to save doc content too if user entered any?
-      // But UI for Sub-docs might be hidden for "New Model" to simplify? 
-      // "Sub-docs only available after creating model" is a common pattern.
-      // Let's stick to that for now unless requested otherwise.
+        // Single Edit / Create
+        const cleanTags: Record<string, string[]> = {};
+        for (const [key, val] of Object.entries(form.tags)) {
+          if (val.length > 0) {
+            cleanTags[key] = val;
+          }
+        }
+
+        const payload = {
+          name: form.name,
+          description: form.description,
+          tags: cleanTags
+        };
+
+        if (isEdit.value && props.modelId) {
+          await modelApi.update(props.modelId, payload);
+          if (currentTab.value) {
+              await modelApi.saveDocContent(props.modelId, currentTab.value, currentDocContent.value);
+          }
+        } else {
+          await modelApi.create(payload);
+        }
     }
 
     // Refresh store data

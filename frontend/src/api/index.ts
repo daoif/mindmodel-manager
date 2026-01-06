@@ -54,6 +54,12 @@ export const modelApi = {
   },
   deleteDoc: async (id: string, type: string) => {
     await api.delete(`/models/${id}/docs/${type}`);
+  },
+  batchDelete: async (ids: string[]) => {
+    await api.post('/models/batch-delete', { ids });
+  },
+  batchUpdateTags: async (ids: string[], tagsToAdd: Record<string, string[]>, tagsToRemove: Record<string, string[]>) => {
+    await api.put('/models/batch-tags', { ids, tagsToAdd, tagsToRemove });
   }
 };
 

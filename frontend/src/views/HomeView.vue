@@ -3,13 +3,62 @@
     <FilterBar />
 
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold text-gray-800">
+      <h2 class="text-2xl font-bold text-gray-800 flex items-center">
         {{ currentFilterDescription }}
         <span class="text-sm font-normal text-gray-500 ml-2">
            {{ filteredModels.length }}/{{ baseModelsCount }} 个模型
         </span>
       </h2>
-      <div class="flex space-x-2">
+      <div class="flex items-center space-x-2">
+         <!-- Batch Select Toggle -->
+         <button
+            @click="toggleBatchMode"
+            :class="[
+                'px-3 py-1.5 text-sm font-medium rounded-md border shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors',
+                isSelectionMode 
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100' 
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            ]"
+         >
+            {{ isSelectionMode ? '退出多选' : '批量选择' }}
+         </button>
+
+         <!-- Batch Actions (Visible only in selection mode) -->
+         <template v-if="isSelectionMode">
+             <div class="flex items-center space-x-2 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
+                 <!-- Select All Checkbox -->
+                <label class="inline-flex items-center space-x-2 text-sm text-gray-700 cursor-pointer select-none">
+                    <input 
+                        type="checkbox" 
+                        :checked="isAllSelected"
+                        :indeterminate="isPartialSelected"
+                        @change="toggleSelectAll"
+                        class="form-checkbox h-4 w-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 transition duration-150 ease-in-out"
+                    >
+                    <span>全选</span>
+                </label>
+
+                <div class="h-4 w-px bg-gray-300 mx-2"></div>
+
+                <span class="text-sm text-gray-500">已选 {{ selectedModelIds.size }} 项</span>
+
+                <button
+                    v-if="selectedModelIds.size > 0"
+                    @click="batchEditTags"
+                    class="ml-2 text-sm text-indigo-600 hover:text-indigo-900 font-medium"
+                >
+                    批量修改标签
+                </button>
+                <button
+                    v-if="selectedModelIds.size > 0"
+                    @click="batchDelete"
+                    class="ml-2 text-sm text-red-600 hover:text-red-900 font-medium"
+                >
+                    批量删除
+                </button>
+             </div>
+         </template>
+
          <!-- Sort Dropdown -->
          <div class="relative inline-block text-left mr-2">
             <div>
@@ -65,7 +114,14 @@
       </div>
     </div>
 
-    <ModelEditModal v-model="showEditModal" :model-id="editingModelId" @saved="onModelSaved" />
+    <!-- Pass mode and selection to Modal -->
+    <ModelEditModal 
+        v-model="showEditModal" 
+        :model-id="editingModelId" 
+        :mode="editMode"
+        :selected-ids="Array.from(selectedModelIds)"
+        @saved="onModelSaved" 
+    />
 
     <div v-if="store.loading" class="text-center py-10">
       <p class="text-gray-500">加载中...</p>
@@ -80,11 +136,21 @@
           <div
             v-for="model in filteredModels"
             :key="model.id"
-            class="bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-200 cursor-pointer flex flex-col"
-            @click="openEditModal(model)"
+            class="bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-200 cursor-pointer flex flex-col relative group"
+            @click="handleCardClick(model)"
           >
+            <!-- Checkbox for Batch Mode -->
+             <div v-if="isSelectionMode" class="absolute top-3 right-3 z-10">
+                <input 
+                    type="checkbox" 
+                    :checked="selectedModelIds.has(model.id)"
+                    @click.stop="toggleSelection(model.id)"
+                    class="form-checkbox h-5 w-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 cursor-pointer"
+                >
+             </div>
+
             <div class="p-5 flex-1">
-              <div class="flex justify-between items-start mb-2">
+              <div class="flex justify-between items-start mb-2 pr-6"> <!-- Add pr-6 for checkbox space -->
                 <h3 class="text-lg font-semibold text-gray-900 line-clamp-1" :title="model.name">{{ model.name }}</h3>
               </div>
               
@@ -137,8 +203,11 @@
         <ModelList
             v-else
             :models="filteredModels"
+            :is-selection-mode="isSelectionMode"
+            :selected-ids="selectedModelIds"
             @edit-model="openEditModel"
             @refresh="store.fetchModels"
+            @toggle-selection="toggleSelection"
         />
     </template>
   </div>
@@ -157,6 +226,11 @@ const store = useMainStore();
 const showEditModal = ref(false);
 const editingModelId = ref<string | null>(null);
 const viewMode = ref<'card' | 'list'>('card');
+const editMode = ref<'single' | 'batch'>('single');
+
+// Batch Selection State
+const isSelectionMode = ref(false);
+const selectedModelIds = reactive(new Set<string>());
 
 const sortOption = ref('updated_desc');
 const showSortMenu = ref(false);
@@ -184,6 +258,10 @@ const getViewModeKey = (filter: any) => {
 
 // Restore settings
 watch(() => store.currentFilter, (filter) => {
+    // Clear selection on filter change
+    selectedModelIds.clear();
+    isSelectionMode.value = false;
+
     // View Mode
     const viewKey = getViewModeKey(filter);
     const savedView = localStorage.getItem(viewKey);
@@ -216,11 +294,13 @@ watch(sortOption, (newVal) => {
 
 const openNewModelModal = () => {
     editingModelId.value = null;
+    editMode.value = 'single';
     showEditModal.value = true;
 };
 
 const openEditModal = (model: MindModel | {id: string}) => {
     editingModelId.value = model.id;
+    editMode.value = 'single';
     showEditModal.value = true;
 };
 // Compatible alias if needed, but we updated template to use openEditModal
@@ -238,7 +318,11 @@ const deleteModel = async (model: MindModel) => {
 };
 
 const onModelSaved = () => {
-    // Model saved
+    // Clear selection after save (especially batch edit)
+    if (editMode.value === 'batch') {
+        selectedModelIds.clear();
+        isSelectionMode.value = false;
+    }
 };
 
 const currentFilterDescription = computed(() => {
@@ -319,6 +403,73 @@ const filteredModels = computed(() => {
   });
 });
 
+// Selection Logic
+const isAllSelected = computed(() => {
+    return filteredModels.value.length > 0 && selectedModelIds.size === filteredModels.value.length;
+});
+
+const isPartialSelected = computed(() => {
+    return selectedModelIds.size > 0 && selectedModelIds.size < filteredModels.value.length;
+});
+
+const toggleBatchMode = () => {
+    isSelectionMode.value = !isSelectionMode.value;
+    if (!isSelectionMode.value) {
+        selectedModelIds.clear();
+    }
+};
+
+const toggleSelectAll = (e: Event) => {
+    const checked = (e.target as HTMLInputElement).checked;
+    if (checked) {
+        filteredModels.value.forEach(m => selectedModelIds.add(m.id));
+    } else {
+        selectedModelIds.clear();
+    }
+};
+
+const toggleSelection = (id: string) => {
+    if (selectedModelIds.has(id)) {
+        selectedModelIds.delete(id);
+    } else {
+        selectedModelIds.add(id);
+    }
+};
+
+const handleCardClick = (model: MindModel) => {
+    if (isSelectionMode.value) {
+        // Prevent default action if clicking on checkbox (handled by @click.stop on input)
+        // But if clicking anywhere else on card:
+        toggleSelection(model.id);
+    } else {
+        openEditModal(model);
+    }
+};
+
+// Batch Actions
+const batchDelete = async () => {
+    if (!confirm(`确定要删除选中的 ${selectedModelIds.size} 个模型吗? 此操作不可恢复。`)) return;
+    try {
+        await modelApi.batchDelete(Array.from(selectedModelIds));
+        await store.fetchModels();
+        selectedModelIds.clear();
+        // Optional: Keep selection mode active? Or exit?
+        // Usually exit if all selected were deleted.
+        if (selectedModelIds.size === 0) {
+             // isSelectionMode.value = false; 
+        }
+    } catch (e) {
+        console.error(e);
+        alert('批量删除失败');
+    }
+};
+
+const batchEditTags = () => {
+    editingModelId.value = null; // No single ID
+    editMode.value = 'batch';
+    showEditModal.value = true;
+};
+
 const getTagColor = (dimName: string) => {
     const dim = store.dimensions.find(d => d.name === dimName);
     return dim?.color || 'bg-gray-100 text-gray-800';
@@ -339,9 +490,6 @@ const copyDocContent = async (modelId: string, docType: string) => {
             await navigator.clipboard.writeText(content);
             copyStatus[key] = 'success';
         } else {
-             // Handle empty? Just show success (copied empty string) or error?
-             // Let's assume empty is valid but inform user?
-             // Or write empty string.
              await navigator.clipboard.writeText('');
              copyStatus[key] = 'success';
         }
