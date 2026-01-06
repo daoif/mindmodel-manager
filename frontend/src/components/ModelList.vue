@@ -30,8 +30,15 @@
                     v-for="dtype in visibleDocTypes"
                     :key="dtype.name"
                     @click.stop="copyDocContent(model.id, dtype.name)"
-                    class="px-2 py-0.5 rounded border bg-white border-gray-200 text-gray-500 text-xs hover:bg-gray-50 transition-colors whitespace-nowrap"
-                    :class="{'!text-green-600 !border-green-200 !bg-green-50': copyStatus[`${model.id}_${dtype.name}`] === 'success'}"
+                    :disabled="!model.docs || !model.docs[dtype.name]"
+                    class="px-2 py-0.5 rounded border text-xs transition-colors whitespace-nowrap"
+                    :class="[
+                        copyStatus[`${model.id}_${dtype.name}`] === 'success' 
+                            ? 'text-green-600 border-green-200 bg-green-50' 
+                            : (!model.docs || !model.docs[dtype.name]) 
+                                ? 'text-gray-300 border-gray-100 bg-gray-50 cursor-not-allowed' 
+                                : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                    ]"
                  >
                     {{ copyStatus[`${model.id}_${dtype.name}`] === 'success' ? '已复制' : (copyStatus[`${model.id}_${dtype.name}`] === 'loading' ? '...' : (dtype.short_name || dtype.name)) }}
                  </button>
@@ -66,8 +73,15 @@
                         v-for="dtype in visibleDocTypes"
                         :key="dtype.name"
                         @click.stop="copyDocContent(model.id, dtype.name)"
-                        class="px-2 py-0.5 rounded border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap"
-                        :class="{'!text-green-600 !border-green-200 !bg-green-50': copyStatus[`${model.id}_${dtype.name}`] === 'success'}"
+                        :disabled="!model.docs || !model.docs[dtype.name]"
+                        class="px-2 py-0.5 rounded border transition-colors whitespace-nowrap"
+                        :class="[
+                            copyStatus[`${model.id}_${dtype.name}`] === 'success' 
+                                ? 'text-green-600 border-green-200 bg-green-50'
+                                : (!model.docs || !model.docs[dtype.name])
+                                    ? 'text-gray-300 border-gray-100 bg-gray-50 cursor-not-allowed'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                        ]"
                      >
                         {{ copyStatus[`${model.id}_${dtype.name}`] === 'success' ? '已复制' : (copyStatus[`${model.id}_${dtype.name}`] === 'loading' ? '...' : (dtype.short_name || dtype.name)) }}
                      </button>

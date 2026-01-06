@@ -52,6 +52,13 @@ export const initDb = async () => {
       show_in_copy BOOLEAN DEFAULT 1,
       short_name TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS model_docs (
+      model_id TEXT,
+      doc_type TEXT,
+      PRIMARY KEY (model_id, doc_type),
+      FOREIGN KEY (model_id) REFERENCES models(id) ON DELETE CASCADE
+    );
   `);
 
   await seedData();
@@ -140,5 +147,43 @@ const seedData = async () => {
     } catch (e) {
       // Column likely exists
     }
+  }
+  // 检查是否需要填充 model_docs (首次运行或迁移)
+  // 我们做一个简单的检查：如果 model_docs 表为空，但 models 表不为空（且确实有文档目录），则执行扫描
+  const modelDocsCount = await db.get('SELECT count(*) as count FROM model_docs');
+  const modelsCount = await db.get('SELECT count(*) as count FROM models');
+
+  if (modelDocsCount.count === 0 && modelsCount.count > 0) {
+    console.log('正在初始化 model_docs 缓存...');
+    const DOCS_DIR = path.join(DATA_DIR, 'docs');
+
+    // 获取所有模型 ID
+    const models = await db.all('SELECT id FROM models');
+
+    const stmt = await db.prepare('INSERT OR IGNORE INTO model_docs (model_id, doc_type) VALUES (?, ?)');
+
+    let addedCount = 0;
+    for (const model of models) {
+      const modelDir = path.join(DOCS_DIR, model.id);
+      if (await fs.pathExists(modelDir)) {
+        const files = await fs.readdir(modelDir);
+        for (const file of files) {
+          if (file.endsWith('.md')) {
+            const filePath = path.join(modelDir, file);
+            const stats = await fs.stat(filePath);
+            if (stats.size > 0) {
+              // 再次确认内容非空 (可选，但为了严谨)
+              const content = await fs.readFile(filePath, 'utf-8');
+              if (content.trim().length > 0) {
+                await stmt.run(model.id, file.replace('.md', ''));
+                addedCount++;
+              }
+            }
+          }
+        }
+      }
+    }
+    await stmt.finalize();
+    console.log(`model_docs 初始化完成，添加了 ${addedCount} 条记录`);
   }
 };

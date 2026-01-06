@@ -56,8 +56,13 @@ if (-not $SkipBuildFrontend) {
         Start-Sleep -Seconds 1
     }
     
+    # 删除根目录的旧 MindModel.exe（避免 Launcher 释放时跳过）
+    $OldExe = Join-Path $ProjectRoot "MindModel.exe"
+    if (Test-Path $OldExe) {
+        Write-Host "Removing old MindModel.exe..."
+        Remove-Item -Force $OldExe
+    }
 
-    
     Push-Location (Join-Path $ProjectRoot "frontend")
     cmd /c "npx tauri build"
     if ($LASTEXITCODE -ne 0) { throw "Frontend build failed" }

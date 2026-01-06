@@ -1,6 +1,6 @@
 [package]
 name = "mindmodel_launcher"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "MindModel Launcher - 释放并启动 MindModel 应用"
 

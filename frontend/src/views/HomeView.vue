@@ -44,6 +44,16 @@
       <div class="flex items-center space-x-2">
          <!-- Batch Actions (Visible in selection mode) -->
          <template v-if="isSelectionMode">
+                     <button
+                @click="openExportModal"
+                :disabled="selectedModelIds.size === 0"
+                :class="[
+                    'px-3 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors',
+                    selectedModelIds.size === 0 ? 'bg-green-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+                ]"
+            >
+                一键导出
+            </button>
             <button
                 @click="batchEditTags"
                 :disabled="selectedModelIds.size === 0"
@@ -119,6 +129,14 @@
           >
             新建模型
           </button>
+          
+          <button
+            v-if="!store.currentFilter || store.currentFilter.length === 0"
+            @click="showImportModal = true"
+            class="ml-2 inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            导入
+          </button>
       </div>
     </div>
 
@@ -167,8 +185,15 @@
                     v-for="dtype in visibleDocTypes"
                     :key="dtype.name"
                     @click.stop="copyDocContent(model.id, dtype.name)"
-                    class="px-2 py-0.5 rounded border bg-white border-gray-200 text-gray-500 text-xs hover:bg-gray-50 transition-colors whitespace-nowrap"
-                    :class="{'!text-green-600 !border-green-200 !bg-green-50': copyStatus[`${model.id}_${dtype.name}`] === 'success'}"
+                    :disabled="!model.docs || !model.docs[dtype.name]"
+                    class="px-2 py-0.5 rounded border text-xs transition-colors whitespace-nowrap"
+                    :class="[
+                        copyStatus[`${model.id}_${dtype.name}`] === 'success' 
+                            ? 'text-green-600 border-green-200 bg-green-50' 
+                            : (!model.docs || !model.docs[dtype.name]) 
+                                ? 'text-gray-300 border-gray-100 bg-gray-50 cursor-not-allowed' 
+                                : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+                    ]"
                  >
                     {{ copyStatus[`${model.id}_${dtype.name}`] === 'success' ? '已复制' : (copyStatus[`${model.id}_${dtype.name}`] === 'loading' ? '...' : (dtype.short_name || dtype.name)) }}
                  </button>
@@ -194,8 +219,15 @@
                     v-for="dtype in visibleDocTypes"
                     :key="dtype.name"
                     @click.stop="copyDocContent(model.id, dtype.name)"
-                    class="px-2 py-1 rounded border bg-white border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap"
-                    :class="{'!text-green-600 !border-green-200 !bg-green-50': copyStatus[`${model.id}_${dtype.name}`] === 'success'}"
+                    :disabled="!model.docs || !model.docs[dtype.name]"
+                    class="px-2 py-1 rounded border transition-colors whitespace-nowrap"
+                    :class="[
+                        copyStatus[`${model.id}_${dtype.name}`] === 'success' 
+                            ? 'text-green-600 border-green-200 bg-green-50'
+                            : (!model.docs || !model.docs[dtype.name])
+                                ? 'text-gray-300 border-gray-100 bg-gray-50 cursor-not-allowed'
+                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    ]"
                  >
                     {{ copyStatus[`${model.id}_${dtype.name}`] === 'success' ? '已复制' : (copyStatus[`${model.id}_${dtype.name}`] === 'loading' ? '...' : (dtype.short_name || dtype.name)) }}
                  </button>
@@ -218,6 +250,16 @@
             @toggle-selection="toggleSelection"
         />
     </template>
+    
+    <ExportModal
+        v-model="showExportModal"
+        :selected-ids="Array.from(selectedModelIds)"
+    />
+    
+    <ImportModal
+        v-model="showImportModal"
+        @imported="store.fetchModels"
+    />
   </div>
 </template>
 
@@ -225,13 +267,17 @@
 import { ref, computed, watch, reactive } from 'vue';
 import { useMainStore } from '../stores';
 import FilterBar from '../components/FilterBar.vue';
+import ImportModal from '../components/ImportModal.vue';
 import ModelEditModal from '../components/ModelEditModal.vue';
 import ModelList from '../components/ModelList.vue';
+import ExportModal from '../components/ExportModal.vue';
 import type { MindModel } from '../types';
 import { modelApi } from '../api';
 
 const store = useMainStore();
 const showEditModal = ref(false);
+const showExportModal = ref(false);
+const showImportModal = ref(false);
 const editingModelId = ref<string | null>(null);
 const viewMode = ref<'card' | 'list'>('card');
 const editMode = ref<'single' | 'batch'>('single');
@@ -476,6 +522,10 @@ const batchEditTags = () => {
     editingModelId.value = null; // No single ID
     editMode.value = 'batch';
     showEditModal.value = true;
+};
+
+const openExportModal = () => {
+    showExportModal.value = true;
 };
 
 const getTagColor = (dimName: string) => {

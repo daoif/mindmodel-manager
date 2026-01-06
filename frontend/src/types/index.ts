@@ -5,6 +5,7 @@ export interface MindModel {
   tags: Record<string, string[]>;
   created_at: string;
   updated_at: string;
+  docs?: Record<string, boolean>;
 }
 
 export interface Document {

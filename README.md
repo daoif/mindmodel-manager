@@ -1,4 +1,6 @@
 # MindModel Manager
+使用预编译版本的用户,请每次删除掉除了data文件夹之外的所有内容,然后使用MindModelLauncher.exe进行首次运行解压.
+之后可使用MindModel.exe启动应用.
 
 MindModel Manager 是一个用于管理和可视化思维模型及相关文档的本地应用程序。它结合了现代化的前端界面和高效的本地后端服务，旨在帮助用户构建个人的知识体系。
 

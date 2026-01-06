@@ -31,6 +31,7 @@ router.get('/', async (req, res) => {
 
     // 获取每个模型的标签
     for (const model of models) {
+      // Tags
       const tags = await db.all('SELECT dimension, value FROM model_tags WHERE model_id = ?', [model.id]);
       model.tags = {};
       tags.forEach((tag: any) => {
@@ -38,6 +39,13 @@ router.get('/', async (req, res) => {
           model.tags[tag.dimension] = [];
         }
         model.tags[tag.dimension].push(tag.value);
+      });
+
+      // Docs (Cache)
+      const docs = await db.all('SELECT doc_type FROM model_docs WHERE model_id = ?', [model.id]);
+      model.docs = {};
+      docs.forEach((d: any) => {
+        model.docs[d.doc_type] = true;
       });
     }
 
@@ -169,6 +177,12 @@ router.get('/:id', async (req, res) => {
         model.tags[tag.dimension] = [];
       }
       model.tags[tag.dimension].push(tag.value);
+    });
+
+    const docs = await db.all('SELECT doc_type FROM model_docs WHERE model_id = ?', [model.id]);
+    model.docs = {};
+    docs.forEach((d: any) => {
+      model.docs[d.doc_type] = true;
     });
 
     res.json(model);
@@ -402,9 +416,20 @@ router.put('/:id/docs/:type', async (req, res) => {
 
     const modelDir = path.join(DOCS_DIR, id);
     const filePath = path.join(modelDir, `${type}.md`);
+    const db = await getDb();
 
-    await fs.ensureDir(modelDir);
-    await fs.writeFile(filePath, content, 'utf-8');
+    if (!content || content.trim().length === 0) {
+      // Content is empty, delete the file and DB record
+      if (await fs.pathExists(filePath)) {
+        await fs.remove(filePath);
+      }
+      await db.run('DELETE FROM model_docs WHERE model_id = ? AND doc_type = ?', [id, type]);
+    } else {
+      // Content exists, save file and update DB
+      await fs.ensureDir(modelDir);
+      await fs.writeFile(filePath, content, 'utf-8');
+      await db.run('INSERT OR IGNORE INTO model_docs (model_id, doc_type) VALUES (?, ?)', [id, type]);
+    }
 
     res.json({ success: true });
   } catch (error) {
@@ -426,6 +451,9 @@ router.delete('/:id/docs/:type', async (req, res) => {
     if (fs.existsSync(filePath)) {
       await fs.remove(filePath);
     }
+
+    const db = await getDb();
+    await db.run('DELETE FROM model_docs WHERE model_id = ? AND doc_type = ?', [id, type]);
 
     res.status(204).send();
   } catch (error) {
