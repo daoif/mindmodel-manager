@@ -156,4 +156,109 @@ router.delete('/doc-types/:name', async (req, res) => {
   }
 });
 
+// 获取所有标签值及其统计信息
+router.get('/tag-values', async (req, res) => {
+  try {
+    const db = await getDb();
+
+    // 获取所有标签值及其使用的模型数量（只统计模型实际存在的记录）
+    const tagValues = await db.all(`
+      SELECT 
+        mt.dimension,
+        mt.value,
+        COUNT(CASE WHEN m.id IS NOT NULL THEN 1 END) as model_count,
+        COUNT(CASE WHEN m.id IS NULL THEN 1 END) as orphan_count
+      FROM model_tags mt
+      LEFT JOIN models m ON mt.model_id = m.id
+      GROUP BY mt.dimension, mt.value
+      ORDER BY mt.dimension, mt.value
+    `);
+
+    res.json(tagValues);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// 获取使用特定标签的模型列表
+router.get('/tag-values/:dimension/:value/models', async (req, res) => {
+  try {
+    const { dimension, value } = req.params;
+    const db = await getDb();
+
+    // 获取使用这个标签的模型ID和名称
+    const models = await db.all(`
+      SELECT m.id, m.name, m.description
+      FROM model_tags mt
+      LEFT JOIN models m ON mt.model_id = m.id
+      WHERE mt.dimension = ? AND mt.value = ?
+    `, [dimension, value]);
+
+    res.json(models);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// 批量清理所有孤立记录（标签指向的模型已不存在）
+// 注意：此路由必须在 /tag-values/:dimension/:value 之前定义
+router.delete('/tag-values/orphans', async (req, res) => {
+  try {
+    const db = await getDb();
+
+    // 删除所有孤立的标签记录
+    const result = await db.run(`
+      DELETE FROM model_tags 
+      WHERE model_id NOT IN (SELECT id FROM models)
+    `);
+
+    res.json({
+      success: true,
+      deleted_count: result.changes,
+      message: `已清理 ${result.changes} 条孤立记录`
+    });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// 删除标签值（只有当没有实际存在的模型使用时才可删除）
+router.delete('/tag-values/:dimension/:value', async (req, res) => {
+  try {
+    const { dimension, value } = req.params;
+    const db = await getDb();
+
+    // 检查是否有实际存在的模型在使用这个标签
+    const usage = await db.get(`
+      SELECT 
+        COUNT(CASE WHEN m.id IS NOT NULL THEN 1 END) as active_count,
+        COUNT(CASE WHEN m.id IS NULL THEN 1 END) as orphan_count
+      FROM model_tags mt
+      LEFT JOIN models m ON mt.model_id = m.id
+      WHERE mt.dimension = ? AND mt.value = ?
+    `, [dimension, value]);
+
+    if (usage.active_count > 0) {
+      return res.status(400).json({
+        error: `无法删除：仍有 ${usage.active_count} 个模型使用此标签`,
+        model_count: usage.active_count
+      });
+    }
+
+    // 删除标签值记录（包括孤立记录）
+    const result = await db.run(
+      'DELETE FROM model_tags WHERE dimension = ? AND value = ?',
+      [dimension, value]
+    );
+
+    res.json({
+      success: true,
+      deleted_orphans: usage.orphan_count,
+      message: usage.orphan_count > 0 ? `已删除 ${usage.orphan_count} 条孤立记录` : '删除成功'
+    });
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 export default router;

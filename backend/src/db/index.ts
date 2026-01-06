@@ -19,6 +19,9 @@ export const initDb = async () => {
     driver: sqlite3.Database
   });
 
+  // 启用外键约束（SQLite默认关闭）
+  await db.exec('PRAGMA foreign_keys = ON;');
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS models (
       id TEXT PRIMARY KEY,

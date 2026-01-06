@@ -14,6 +14,13 @@
     >
       文档类型
     </router-link>
+        <router-link 
+      to="/settings/tag-values" 
+      class="text-sm font-medium transition-colors duration-200"
+      :class="[$route.path === '/settings/tag-values' ? 'text-indigo-600' : 'text-gray-500 hover:text-gray-700']"
+    >
+      标签管理
+    </router-link>
     <router-link 
       to="/settings/desktop" 
       class="text-sm font-medium transition-colors duration-200"

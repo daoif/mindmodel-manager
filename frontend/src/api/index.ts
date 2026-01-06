@@ -87,6 +87,17 @@ export const configApi = {
   },
   deleteDocType: async (name: string) => {
     await api.delete(`/config/doc-types/${name}`);
+  },
+  getTagValues: async () => {
+    const response = await api.get<{ dimension: string; value: string; model_count: number }[]>('/config/tag-values');
+    return response;
+  },
+  deleteTagValue: async (dimension: string, value: string) => {
+    await api.delete(`/config/tag-values/${encodeURIComponent(dimension)}/${encodeURIComponent(value)}`);
+  },
+  cleanupOrphans: async () => {
+    const response = await api.delete<{ success: boolean; deleted_count: number; message: string }>('/config/tag-values/orphans');
+    return response;
   }
 };
 
