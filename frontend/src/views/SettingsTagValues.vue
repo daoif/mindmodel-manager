@@ -70,6 +70,12 @@
             </td>
             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
               <button 
+                @click="openEditModal(tag)"
+                class="text-indigo-600 hover:text-indigo-900 mr-3"
+              >
+                编辑
+              </button>
+              <button 
                 v-if="tag.model_count === 0"
                 @click="confirmDelete(tag)" 
                 class="text-red-600 hover:text-red-900"
@@ -88,6 +94,62 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- 编辑标签弹窗 -->
+    <div v-if="showEditModal" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" @click="closeEditModal"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+          <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div class="sm:flex sm:items-start">
+              <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 sm:mx-0 sm:h-10 sm:w-10">
+                <svg class="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </div>
+              <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title">编辑标签</h3>
+                <div class="mt-2">
+                  <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">维度</label>
+                    <p class="mt-1 text-sm text-gray-900">{{ editingTag?.dimension }}</p>
+                  </div>
+                  <div class="mb-4">
+                     <label for="tagName" class="block text-sm font-medium text-gray-700">标签名称</label>
+                     <input 
+                      type="text" 
+                      id="tagName"
+                      v-model="editTagName" 
+                      class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md p-2 border"
+                      @keyup.enter="saveEditTag"
+                      ref="editInputRef"
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button 
+              type="button" 
+              @click="saveEditTag"
+              :disabled="saving"
+              class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+            >
+              {{ saving ? '保存中...' : '保存' }}
+            </button>
+            <button 
+              type="button" 
+              @click="closeEditModal"
+              class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 删除确认弹窗 -->
@@ -183,7 +245,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { useMainStore } from '../stores';
 import SettingsNav from '../components/SettingsNav.vue';
 import { configApi } from '../api';
@@ -204,6 +266,13 @@ const showDeleteModal = ref(false);
 const showCleanupModal = ref(false);
 const tagToDelete = ref<TagValue | null>(null);
 const deleting = ref(false);
+
+// 编辑相关
+const showEditModal = ref(false);
+const editingTag = ref<TagValue | null>(null);
+const editTagName = ref('');
+const saving = ref(false);
+const editInputRef = ref<HTMLInputElement | null>(null);
 
 // 计算孤立记录总数
 const totalOrphanCount = computed(() => {
@@ -276,7 +345,7 @@ const cleanupAllOrphans = () => {
 const doCleanupOrphans = async () => {
   cleaning.value = true;
   try {
-    const response = await configApi.cleanupOrphans();
+    await configApi.cleanupOrphans();
     showCleanupModal.value = false;
     // 刷新列表
     await loadTagValues();
@@ -286,6 +355,68 @@ const doCleanupOrphans = async () => {
     console.error('清理失败:', error);
   } finally {
     cleaning.value = false;
+  }
+};
+
+// 打开编辑弹窗
+const openEditModal = (tag: TagValue) => {
+  editingTag.value = tag;
+  editTagName.value = tag.value;
+  showEditModal.value = true;
+  nextTick(() => {
+    editInputRef.value?.focus();
+  });
+};
+
+// 关闭编辑弹窗
+const closeEditModal = () => {
+  showEditModal.value = false;
+  editingTag.value = null;
+  editTagName.value = '';
+};
+
+// 保存编辑
+const saveEditTag = async () => {
+  if (!editingTag.value || !editTagName.value.trim()) return;
+  if (editTagName.value.trim() === editingTag.value.value) {
+    closeEditModal();
+    return;
+  }
+
+  saving.value = true;
+  try {
+    await configApi.updateTagValue(
+      editingTag.value.dimension,
+      editingTag.value.value,
+      editTagName.value.trim()
+    );
+    closeEditModal();
+    // 刷新
+    await loadTagValues();
+    await store.fetchNavigation();
+  } catch (error: any) {
+    if (error.response?.status === 409 && error.response.data.requiresConfirmation) {
+      if (confirm(error.response.data.message)) {
+        // 确认合并
+        try {
+          await configApi.updateTagValue(
+            editingTag.value!.dimension,
+            editingTag.value!.value,
+            editTagName.value.trim(),
+            true // confirmMerge
+          );
+          closeEditModal();
+          await loadTagValues();
+          await store.fetchNavigation();
+        } catch (mergeError: any) {
+          alert(mergeError.response?.data?.error || '合并失败');
+        }
+      }
+    } else {
+      alert(error.response?.data?.error || '保存失败');
+    }
+  } finally {
+    saving.value = false;
   }
 };
 

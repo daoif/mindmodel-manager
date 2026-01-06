@@ -89,7 +89,7 @@ export const configApi = {
     await api.delete(`/config/doc-types/${name}`);
   },
   getTagValues: async () => {
-    const response = await api.get<{ dimension: string; value: string; model_count: number }[]>('/config/tag-values');
+    const response = await api.get<{ dimension: string; value: string; model_count: number; orphan_count: number }[]>('/config/tag-values');
     return response;
   },
   deleteTagValue: async (dimension: string, value: string) => {
@@ -98,6 +98,13 @@ export const configApi = {
   cleanupOrphans: async () => {
     const response = await api.delete<{ success: boolean; deleted_count: number; message: string }>('/config/tag-values/orphans');
     return response;
+  },
+  updateTagValue: async (dimension: string, value: string, newValue: string, confirmMerge: boolean = false) => {
+    const response = await api.put<{ success: boolean; message: string; requiresConfirmation?: boolean }>(
+      `/config/tag-values/${encodeURIComponent(dimension)}/${encodeURIComponent(value)}`,
+      { newValue, confirmMerge }
+    );
+    return response.data;
   }
 };
 

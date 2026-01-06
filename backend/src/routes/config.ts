@@ -222,6 +222,72 @@ router.delete('/tag-values/orphans', async (req, res) => {
   }
 });
 
+// 修改标签值（改名或合并）
+router.put('/tag-values/:dimension/:value', async (req, res) => {
+  try {
+    const { dimension, value } = req.params;
+    const { newValue, confirmMerge } = req.body;
+    const db = await getDb();
+
+    if (!newValue || newValue.trim() === '') {
+      return res.status(400).json({ error: '新标签值不能为空' });
+    }
+
+    if (newValue === value) {
+      return res.json({ success: true, message: '名称未变更' });
+    }
+
+    // 检查新名称是否已存在
+    const existing = await db.get(
+      'SELECT 1 FROM model_tags WHERE dimension = ? AND value = ? LIMIT 1',
+      [dimension, newValue]
+    );
+
+    // 如果新名称已存在，且未确认合并
+    if (existing && !confirmMerge) {
+      return res.status(409).json({
+        error: '标签名称已存在',
+        requiresConfirmation: true,
+        message: `标签 "${newValue}" 已存在。是否合并？合并后所有使用 "${value}" 的模型将改为使用 "${newValue}"，且会自动去重。`
+      });
+    }
+
+    await db.run('BEGIN TRANSACTION');
+
+    try {
+      if (existing) {
+        // 合并逻辑：
+        // 1. 尝试将旧标签更新为新标签名称 (UPDATE OR IGNORE)
+        //    IGNORE 会忽略那些导致主键冲突的更新（即模型同时拥有旧标签和新标签的情况）
+        await db.run(
+          'UPDATE OR IGNORE model_tags SET value = ? WHERE dimension = ? AND value = ?',
+          [newValue, dimension, value]
+        );
+
+        // 2. 删除剩余的旧标签记录（即那些被 IGNORE 的记录，它们已经有了新标签，所以旧标签可以直接删掉）
+        await db.run(
+          'DELETE FROM model_tags WHERE dimension = ? AND value = ?',
+          [dimension, value]
+        );
+      } else {
+        // 直接改名
+        await db.run(
+          'UPDATE model_tags SET value = ? WHERE dimension = ? AND value = ?',
+          [newValue, dimension, value]
+        );
+      }
+
+      await db.run('COMMIT');
+      res.json({ success: true, message: existing ? '合并成功' : '改名成功' });
+    } catch (error) {
+      await db.run('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // 删除标签值（只有当没有实际存在的模型使用时才可删除）
 router.delete('/tag-values/:dimension/:value', async (req, res) => {
   try {
