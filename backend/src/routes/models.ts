@@ -47,6 +47,111 @@ router.get('/', async (req, res) => {
   }
 });
 
+
+// 批量删除模型
+router.post('/batch-delete', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids 必须是非空数组' });
+    }
+
+    const db = await getDb();
+
+    // 使用事务确保原子性
+    await db.run('BEGIN TRANSACTION');
+    try {
+      // 生成占位符
+      const placeholders = ids.map(() => '?').join(',');
+
+      // 删除模型 (model_tags 会自动级联删除)
+      await db.run(`DELETE FROM models WHERE id IN (${placeholders})`, ids);
+
+      await db.run('COMMIT');
+
+      // 删除文档目录 (非事务操作，失败不回滚 DB，但记录错误)
+      for (const id of ids) {
+        await fs.remove(path.join(DOCS_DIR, id));
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      await db.run('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
+// 批量修改模型标签
+router.put('/batch-tags', async (req, res) => {
+  try {
+    const { ids, tagsToAdd, tagsToRemove } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids 必须是非空数组' });
+    }
+
+    const db = await getDb();
+    const now = new Date().toISOString();
+
+    await db.run('BEGIN TRANSACTION');
+    try {
+      // 1. 移除标签
+      if (tagsToRemove) {
+        for (const [dimension, values] of Object.entries(tagsToRemove as Record<string, string[]>)) {
+          if (Array.isArray(values) && values.length > 0) {
+            const placeholders = values.map(() => '?').join(',');
+            // DELETE FROM model_tags WHERE model_id IN (ids...) AND dimension = ? AND value IN (values...)
+            const idPlaceholders = ids.map(() => '?').join(',');
+
+            await db.run(
+              `DELETE FROM model_tags 
+                WHERE model_id IN (${idPlaceholders}) 
+                AND dimension = ? 
+                AND value IN (${placeholders})`,
+              [...ids, dimension, ...values]
+            );
+          }
+        }
+      }
+
+      // 2. 添加标签 (需要避免重复)
+      if (tagsToAdd) {
+        for (const [dimension, values] of Object.entries(tagsToAdd as Record<string, string[]>)) {
+          if (Array.isArray(values) && values.length > 0) {
+            for (const value of values) {
+              for (const id of ids) {
+                // 使用 INSERT OR IGNORE 避免主键冲突
+                await db.run(
+                  'INSERT OR IGNORE INTO model_tags (model_id, dimension, value) VALUES (?, ?, ?)',
+                  [id, dimension, value]
+                );
+              }
+            }
+          }
+        }
+      }
+
+      // 3. 更新模型的 updated_at
+      const idPlaceholders = ids.map(() => '?').join(',');
+      await db.run(
+        `UPDATE models SET updated_at = ? WHERE id IN (${idPlaceholders})`,
+        [now, ...ids]
+      );
+
+      await db.run('COMMIT');
+      res.json({ success: true, updated_count: ids.length });
+    } catch (error) {
+      await db.run('ROLLBACK');
+      throw error;
+    }
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // 获取单个模型详情
 router.get('/:id', async (req, res) => {
   try {
@@ -209,109 +314,7 @@ router.put('/:id/tags', async (req, res) => {
   }
 });
 
-// 批量删除模型
-router.post('/batch-delete', async (req, res) => {
-  try {
-    const { ids } = req.body;
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: 'ids 必须是非空数组' });
-    }
 
-    const db = await getDb();
-
-    // 使用事务确保原子性
-    await db.run('BEGIN TRANSACTION');
-    try {
-      // 生成占位符
-      const placeholders = ids.map(() => '?').join(',');
-
-      // 删除模型 (model_tags 会自动级联删除)
-      await db.run(`DELETE FROM models WHERE id IN (${placeholders})`, ids);
-
-      await db.run('COMMIT');
-
-      // 删除文档目录 (非事务操作，失败不回滚 DB，但记录错误)
-      for (const id of ids) {
-        await fs.remove(path.join(DOCS_DIR, id));
-      }
-
-      res.status(204).send();
-    } catch (error) {
-      await db.run('ROLLBACK');
-      throw error;
-    }
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
-
-// 批量修改模型标签
-router.put('/batch-tags', async (req, res) => {
-  try {
-    const { ids, tagsToAdd, tagsToRemove } = req.body;
-
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: 'ids 必须是非空数组' });
-    }
-
-    const db = await getDb();
-    const now = new Date().toISOString();
-
-    await db.run('BEGIN TRANSACTION');
-    try {
-      // 1. 移除标签
-      if (tagsToRemove) {
-        for (const [dimension, values] of Object.entries(tagsToRemove as Record<string, string[]>)) {
-          if (Array.isArray(values) && values.length > 0) {
-            const placeholders = values.map(() => '?').join(',');
-            // DELETE FROM model_tags WHERE model_id IN (ids...) AND dimension = ? AND value IN (values...)
-            const idPlaceholders = ids.map(() => '?').join(',');
-
-            await db.run(
-              `DELETE FROM model_tags 
-                WHERE model_id IN (${idPlaceholders}) 
-                AND dimension = ? 
-                AND value IN (${placeholders})`,
-              [...ids, dimension, ...values]
-            );
-          }
-        }
-      }
-
-      // 2. 添加标签 (需要避免重复)
-      if (tagsToAdd) {
-        for (const [dimension, values] of Object.entries(tagsToAdd as Record<string, string[]>)) {
-          if (Array.isArray(values) && values.length > 0) {
-            for (const value of values) {
-              for (const id of ids) {
-                // 使用 INSERT OR IGNORE 避免主键冲突
-                await db.run(
-                  'INSERT OR IGNORE INTO model_tags (model_id, dimension, value) VALUES (?, ?, ?)',
-                  [id, dimension, value]
-                );
-              }
-            }
-          }
-        }
-      }
-
-      // 3. 更新模型的 updated_at
-      const idPlaceholders = ids.map(() => '?').join(',');
-      await db.run(
-        `UPDATE models SET updated_at = ? WHERE id IN (${idPlaceholders})`,
-        [now, ...ids]
-      );
-
-      await db.run('COMMIT');
-      res.json({ success: true, updated_count: ids.length });
-    } catch (error) {
-      await db.run('ROLLBACK');
-      throw error;
-    }
-  } catch (error) {
-    res.status(500).json({ error: (error as Error).message });
-  }
-});
 
 // 删除模型
 router.delete('/:id', async (req, res) => {
